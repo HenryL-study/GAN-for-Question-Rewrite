@@ -1,8 +1,8 @@
-数据集
+Data Set
 
 L6 - Yahoo! Answers Comprehensive Questions and Answers version 1.0 (multi part)    //目前无法下载，无yahoo邮箱
 
-词向量
+Word Embedding
 
 Download pre-trained word vectors
 
@@ -15,7 +15,7 @@ Pre-trained word vectors.
     
     Twitter (2B tweets, 27B tokens, 1.2M vocab, uncased, 25d, 50d, 100d, & 200d vectors, 1.42 GB download): glove.twitter.27B.zip
     
-网络结构
+Network Structure
 |
 |---Generator
 |   |
