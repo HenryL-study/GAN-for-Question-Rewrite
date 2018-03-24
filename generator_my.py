@@ -25,7 +25,7 @@ class Generator(object):
         self.decode_rnn_size = 50
         self.decode_layer_size = 2
 
-        self.expected_reward = tf.Variable(tf.zeros([self.sequence_length]))
+        self.given_num = tf.placeholder(tf.int32, shape=(1))
 
         #with tf.variable_scope('generator'):
         self.g_embeddings = tf.Variable(self.init_matrix([self.num_emb, self.emb_dim]))
@@ -106,7 +106,7 @@ class Generator(object):
         - source_sequence_length: actual seq lenth of each data
         '''
         #rnn cell
-        #TODO change to bi-rnn
+        #change to bi-rnn
         #
         # 首先构造单个rnn cell
         # encoder_f_cell = LSTMCell(self.hidden_size)
