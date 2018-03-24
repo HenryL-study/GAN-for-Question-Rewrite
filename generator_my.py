@@ -211,8 +211,36 @@ class Generator(object):
             predicting_decoder_output, _ = tf.contrib.seq2seq.dynamic_decode(predicting_decoder,
                                                                 impute_finished=True,
                                                                 maximum_iterations=max_target_sequence_length)
+
+        # 6. reward sample decoder
+        # 与training共享参数
+        # Need finished !!!
+        with tf.variable_scope("decode", reuse=True):
+            # 创建一个常量tensor并复制为batch_size的大小
+            start_tokens = tf.tile(tf.constant([self.seq_start_token], dtype=tf.int32), [batch_size], 
+                                name='start_tokens')
+            predicting_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(self.g_embeddings,
+                                                                    start_tokens,
+                                                                    self.seq_end_token)
+            predicting_decoder = tf.contrib.seq2seq.BasicDecoder(cell,
+                                                            predicting_helper,
+                                                            encoder_state,
+                                                            output_layer)
+            predicting_decoder_output, _ = tf.contrib.seq2seq.dynamic_decode(predicting_decoder,
+                                                                impute_finished=True,
+                                                                maximum_iterations=max_target_sequence_length)
         
         return training_decoder_output, predicting_decoder_output
+    
+    def get_samples(self, input_x, given_num):
+        '''
+        sample once by the given time step
+
+        '''
+
+
+        return samples
+
 
     def generate(self, sess):
         outputs = sess.run(self.g_predictions)
