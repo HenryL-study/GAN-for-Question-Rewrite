@@ -103,7 +103,7 @@ class Generator(object):
         - input_data: a Tensor of shape [batch_size, seq_length, emb_dim]
         - rnn_size: num of hidden states in rnn
         - num_layers: layers of rnn
-        - source_sequence_length: seq lenth of each data
+        - source_sequence_length: actual seq lenth of each data
         '''
         #rnn cell
         #TODO change to bi-rnn
@@ -124,10 +124,29 @@ class Generator(object):
             lstm_cell = tf.contrib.rnn_cell.BasicLSTMCell(encoder_num_units)
             return lstm_cell
         
-        cell = tf.contrib.rnn.MultiRNNCell([get_lstm_cell(rnn_size) for _ in range(num_layers)])
+        f_cell = tf.contrib.rnn.MultiRNNCell([get_lstm_cell(rnn_size) for _ in range(num_layers)])
+        b_cell = tf.contrib.rnn.MultiRNNCell([get_lstm_cell(rnn_size) for _ in range(num_layers)])
 
-        encoder_output, encoder_state = tf.nn.dynamic_rnn(cell, input_data, 
-                                                      sequence_length=source_sequence_length, dtype=tf.float32)
+        (encoder_fw_outputs, encoder_bw_outputs),
+        (encoder_fw_final_state, encoder_bw_final_state) = \
+                tf.nn.bidirectional_dynamic_rnn(cell_fw=f_cell,
+                                                    cell_bw=b_cell,
+                                                    inputs=input_data,
+                                                    sequence_length=source_sequence_length,
+                                                    dtype=tf.float32, time_major=True)
+
+        encoder_output = tf.concat((encoder_fw_outputs, encoder_bw_outputs), 2)
+
+        encoder_final_state_c = tf.concat(
+            (encoder_fw_final_state.c, encoder_bw_final_state.c), 1)
+
+        encoder_final_state_h = tf.concat(
+            (encoder_fw_final_state.h, encoder_bw_final_state.h), 1)
+
+        encoder_state = LSTMStateTuple(
+            c=encoder_final_state_c,
+            h=encoder_final_state_h
+        )
 
         return encoder_output, encoder_state
 
