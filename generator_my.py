@@ -203,7 +203,7 @@ class Generator(object):
         # 与training共享参数
         with tf.variable_scope("decode", reuse=True):
             # 创建一个常量tensor并复制为batch_size的大小
-            start_tokens = tf.tile(tf.constant([self.seq_start_token], dtype=tf.int32), [batch_size], 
+            start_tokens = tf.tile(tf.constant([self.seq_start_token], dtype=tf.int32), [self.batch_size], 
                                 name='start_tokens')
             predicting_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(self.g_embeddings,
                                                                     start_tokens,
@@ -221,9 +221,11 @@ class Generator(object):
         # Need finished !!!
         with tf.variable_scope("decode", reuse=True):
             # 创建一个常量tensor并复制为batch_size的大小
-            start_tokens = tf.tile(tf.constant([self.seq_start_token], dtype=tf.int32), [batch_size], 
+            start_tokens = tf.tile(tf.constant([self.seq_start_token], dtype=tf.int32), [self.batch_size], 
                                 name='start_tokens')
             start_tokens_embed = tf.nn.embedding_lookup(self.g_embeddings, start_tokens)
+            pad_step_embedded = tf.zeros([self.batch_size, self.encode_rnn_size*2+self.emb_dim], dtype=tf.float32)
+
             def initial_fn():
                 initial_elements_finished = (0 >= target_sequence_length)  # all False at the initial step
                 initial_input = tf.concat((start_tokens_embed, encoder_output[0]), 1)
@@ -240,15 +242,20 @@ class Generator(object):
 
             def next_inputs_fn(time, outputs, state, sample_ids):
                 # 输入是h_i+o_{i-1}+c_i
-                next_input = None
-                if time > self.given_num:
-                    # 上一个时间节点上的输出类别，获取embedding再作为下一个时间节点的输入
+                # time is a tensor finish compare
+                def f1():
                     pred_embedding = tf.nn.embedding_lookup(self.g_embeddings, sample_ids)
-                    next_input = tf.concat((pred_embedding, encoder_outputs[time]), 1)
-                else:
-                    # 上一个时间节点上的输出类别，获取embedding再作为下一个时间节点的输入
-                    pred_embedding = self.processed_x[:,time,:]
-                    next_input = tf.concat((pred_embedding, encoder_outputs[time]), 1)
+                    next_input = tf.concat((pred_embedding, encoder_output[time]), 1)
+                    return next_input
+
+                def f2():
+                    pred_embedding = self.processed_x[:,time[0],:]
+                    next_input = tf.concat((pred_embedding, encoder_output[time]), 1)
+
+                    return next_input
+
+                next_input = tf.cond(tf.less(given_num, time[0]), f2, f1)
+
                     
                 elements_finished = (time >= target_sequence_length)  # this operation produces boolean tensor of [batch_size]
                 all_finished = tf.reduce_all(elements_finished)  # -> boolean scalar
@@ -256,17 +263,13 @@ class Generator(object):
                 next_state = state
                 return elements_finished, next_inputs, next_state
 
-            my_helper = tf.contrib.seq2seq.CustomHelper(initial_fn, sample_fn, next_inputs_fn)
+            rollout_helper = tf.contrib.seq2seq.CustomHelper(initial_fn, sample_fn, next_inputs_fn)
 
-            ##########################TODO###############################################
-            predicting_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(self.g_embeddings,
-                                                                    start_tokens,
-                                                                    self.seq_end_token)
-            predicting_decoder = tf.contrib.seq2seq.BasicDecoder(cell,
-                                                            predicting_helper,
+            rollout_decoder = tf.contrib.seq2seq.BasicDecoder(cell,
+                                                            rollout_helper,
                                                             encoder_state,
                                                             output_layer)
-            rollout_decoder_output, _ = tf.contrib.seq2seq.dynamic_decode(predicting_decoder,
+            rollout_decoder_output, _ = tf.contrib.seq2seq.dynamic_decode(rollout_decoder,
                                                                 impute_finished=True,
                                                                 maximum_iterations=max_target_sequence_length)
         
