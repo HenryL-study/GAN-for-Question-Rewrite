@@ -88,6 +88,31 @@ def process_real_data():
     #TODO not implented
     return 'a file name', 'eval file name'  
 
+def get_reward(sess, input_x, rollout_num, generator, discriminator):
+    rewards = []
+    for i in range(rollout_num):
+        for given_num in range(1, SEQ_LENGTH):
+            samples = generator.get_samples(input_x, given_num)
+            feed = {discriminator.input_x: samples, discriminator.dropout_keep_prob: 1.0}
+            ypred_for_auc = sess.run(discriminator.ypred_for_auc, feed)
+            ypred = np.array([item[1] for item in ypred_for_auc])
+            if i == 0:
+                rewards.append(ypred)
+            else:
+                rewards[given_num - 1] += ypred
+
+        # the last token reward
+        feed = {discriminator.input_x: input_x, discriminator.dropout_keep_prob: 1.0}
+        ypred_for_auc = sess.run(discriminator.ypred_for_auc, feed)
+        ypred = np.array([item[1] for item in ypred_for_auc])
+        if i == 0:
+            rewards.append(ypred)
+        else:
+            rewards[SEQ_LENGTH-1] += ypred
+
+    rewards = np.transpose(np.array(rewards)) / (1.0 * rollout_num)  # batch_size x seq_length
+    return rewards
+
 random.seed(SEED)
 np.random.seed(SEED)
 
@@ -146,11 +171,11 @@ log.write('pre-training...\n')
 for epoch in range(PRE_EPOCH_NUM):
     loss = pre_train_epoch(sess, generator, gen_data_loader)
     if epoch % 5 == 0:
-        generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file)
-        likelihood_data_loader.create_batches(eval_file)
-        test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
-        print ('pre-train epoch ', epoch, 'test_loss ', test_loss)
-        buffer = 'epoch:\t'+ str(epoch) + '\tnll:\t' + str(test_loss) + '\n'
+        # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file)
+        # likelihood_data_loader.create_batches(eval_file)
+        # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
+        print ('pre-train epoch ', epoch, 'generator_loss ', loss)
+        buffer = 'epoch:\t'+ str(epoch) + '\tgenerator_loss:\t' + str(test_loss) + '\n'
         log.write(buffer)
 
 print ('Start pre-training discriminator...')
@@ -169,8 +194,8 @@ for _ in range(50):
             }
             _ = sess.run(discriminator.train_op, feed)
 
-#---------------------------------------------------------######################------------------------------------------------
-rollout = ROLLOUT(generator, 0.8)
+# merge rollout into genrater so the update rate 0.2->1(real time). Any side effects?
+# rollout = ROLLOUT(generator, 0.8)
 
 print ('#########################################################################')
 print ('Start Adversarial Training...')
@@ -179,21 +204,21 @@ for total_batch in range(TOTAL_BATCH):
     # Train the generator for one step
     for it in range(1):
         samples = generator.generate(sess)
-        rewards = rollout.get_reward(sess, samples, 16, discriminator)
+        rewards = get_reward(sess, samples, 16, generator, discriminator)
         feed = {generator.x: samples, generator.rewards: rewards}
-        _ = sess.run(generator.g_updates, feed_dict=feed)
+        _, g_loss = sess.run([generator.g_updates, generator.g_loss], feed_dict=feed)
 
     # Test
     if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
-        generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file)
-        likelihood_data_loader.create_batches(eval_file)
-        test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
-        buffer = 'epoch:\t' + str(total_batch) + '\tnll:\t' + str(test_loss) + '\n'
-        print ('total_batch: ', total_batch, 'test_loss: ', test_loss)
+        # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file)
+        # likelihood_data_loader.create_batches(eval_file)
+        # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
+        buffer = 'epoch:\t' + str(total_batch) + '\tg_loss:\t' + str(test_loss) + '\n'
+        print ('total_batch: ', total_batch, 'g_loss: ', test_loss)
         log.write(buffer)
 
     # Update roll-out parameters
-    rollout.update_params()
+    #rollout.update_params()
 
     # Train the discriminator
     for _ in range(5):
