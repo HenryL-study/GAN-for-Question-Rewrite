@@ -41,14 +41,16 @@ class Generator(object):
             #self.processed_x = tf.transpose(tf.nn.embedding_lookup(self.g_embeddings, self.x), perm=[1, 0, 2])  # seq_length x batch_size x emb_dim
             self.processed_x = tf.nn.embedding_lookup(self.g_embeddings, self.x)
         
-        _, encoder_state = get_encoder_layer(self.processed_x, self.encode_rnn_size, self.encode_layer_size)
+        encoder_output, encoder_state = get_encoder_layer(self.processed_x, self.encode_rnn_size, self.encode_layer_size)
 
-        training_decoder_output, predicting_decoder_output = decoding_layer(self.decode_layer_size, 
-                                                                            self.decode_rnn_size,
-                                                                            self.target_sequence_length,
-                                                                            self.max_sequence_length,
-                                                                            encoder_state, 
-                                                                            self.x)
+        training_decoder_output, predicting_decoder_output, rollout_decoder_output 
+            = decoding_layer(self.decode_layer_size, 
+                                self.decode_rnn_size,
+                                self.target_sequence_length,
+                                self.max_sequence_length,
+                                encoder_state,
+                                encoder_output, 
+                                self.x)
         
         #######################################################################################################
         #  Pre-Training
@@ -70,7 +72,8 @@ class Generator(object):
         #######################################################################################################
         #  Unsupervised Training
         #######################################################################################################
-        self.g_predictions = predicting_decoder_output.rnn_output
+        self.g_predictions = predicting_decoder_output.sample_id
+        self.g_rollout = rollout_decoder_output.sample_id
         self.g_loss = -tf.reduce_sum(
             tf.reduce_sum(
                 tf.one_hot(tf.to_int32(tf.reshape(self.x, [-1])), self.num_emb, 1.0, 0.0) * tf.log(
@@ -151,7 +154,7 @@ class Generator(object):
         return encoder_output, encoder_state
 
     def decoding_layer(num_layers, rnn_size, target_sequence_length, 
-                        max_target_sequence_length, encoder_state, decoder_input):
+                        max_target_sequence_length, encoder_state, encoder_output, decoder_input):
         '''
         构造Decoder层
         
@@ -163,6 +166,7 @@ class Generator(object):
         - target_sequence_length: target数据序列长度
         - max_target_sequence_length: target数据序列最大长度
         - encoder_state: encoder端编码的状态向量
+        - encoder_output: 
         - decoder_input: decoder端输入
         '''
         # 1. Embedding
@@ -219,6 +223,42 @@ class Generator(object):
             # 创建一个常量tensor并复制为batch_size的大小
             start_tokens = tf.tile(tf.constant([self.seq_start_token], dtype=tf.int32), [batch_size], 
                                 name='start_tokens')
+            start_tokens_embed = tf.nn.embedding_lookup(self.g_embeddings, start_tokens)
+            def initial_fn():
+                initial_elements_finished = (0 >= target_sequence_length)  # all False at the initial step
+                initial_input = tf.concat((start_tokens_embed, encoder_output[0]), 1)
+                return initial_elements_finished, initial_input
+
+            def sample_fn(time, outputs, state):
+                # 选择logit最大的下标作为sample
+                print("outputs", outputs)
+                # output_logits = tf.add(tf.matmul(outputs, self.slot_W), self.slot_b)
+                # print("slot output_logits: ", output_logits)
+                # prediction_id = tf.argmax(output_logits, axis=1)
+                prediction_id = tf.to_int32(tf.argmax(outputs, axis=1))
+                return prediction_id
+
+            def next_inputs_fn(time, outputs, state, sample_ids):
+                # 输入是h_i+o_{i-1}+c_i
+                next_input = None
+                if time > self.given_num:
+                    # 上一个时间节点上的输出类别，获取embedding再作为下一个时间节点的输入
+                    pred_embedding = tf.nn.embedding_lookup(self.g_embeddings, sample_ids)
+                    next_input = tf.concat((pred_embedding, encoder_outputs[time]), 1)
+                else:
+                    # 上一个时间节点上的输出类别，获取embedding再作为下一个时间节点的输入
+                    pred_embedding = self.processed_x[:,time,:]
+                    next_input = tf.concat((pred_embedding, encoder_outputs[time]), 1)
+                    
+                elements_finished = (time >= target_sequence_length)  # this operation produces boolean tensor of [batch_size]
+                all_finished = tf.reduce_all(elements_finished)  # -> boolean scalar
+                next_inputs = tf.cond(all_finished, lambda: pad_step_embedded, lambda: next_input)
+                next_state = state
+                return elements_finished, next_inputs, next_state
+
+            my_helper = tf.contrib.seq2seq.CustomHelper(initial_fn, sample_fn, next_inputs_fn)
+
+            ##########################TODO###############################################
             predicting_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(self.g_embeddings,
                                                                     start_tokens,
                                                                     self.seq_end_token)
@@ -226,18 +266,21 @@ class Generator(object):
                                                             predicting_helper,
                                                             encoder_state,
                                                             output_layer)
-            predicting_decoder_output, _ = tf.contrib.seq2seq.dynamic_decode(predicting_decoder,
+            rollout_decoder_output, _ = tf.contrib.seq2seq.dynamic_decode(predicting_decoder,
                                                                 impute_finished=True,
                                                                 maximum_iterations=max_target_sequence_length)
         
-        return training_decoder_output, predicting_decoder_output
+        return training_decoder_output, predicting_decoder_output, rollout_decoder_output
     
     def get_samples(self, input_x, given_num):
         '''
         sample once by the given time step
-
+        Args:
+        input_x: [batch_size, seq_length]
+        given_num: given tokens use for generate
         '''
-
+        feed = {self.x: input_x, self.given_num: given_num}
+        samples = sess.run(self.g_rollout, feed)
 
         return samples
 
