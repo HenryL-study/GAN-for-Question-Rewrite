@@ -17,7 +17,7 @@ from discriminator import Discriminator
 #  Generator  Hyper-parameters
 ######################################################################################
 HIDDEN_DIM = 32 # hidden state dimension of lstm cell
-SEQ_LENGTH = 100 # sequence length TODO need processing data
+SEQ_LENGTH = 28 # sequence length TODO need processing data
 START_TOKEN = None #
 PRE_EPOCH_NUM = 120 # supervise (maximum likelihood estimation) epochs
 BATCH_SIZE = 10 #64
@@ -87,8 +87,8 @@ def pre_train_epoch(sess, trainable_model, data_loader):
     return np.mean(supervised_g_losses)
 
 def process_real_data():
-    #TODO not implented
-    return 'a file name', 'eval file name'  
+    #processing in process_questions.py
+    return 'question-vec.txt', 'not use now'  
 
 def get_reward(sess, input_x, rollout_num, generator, discriminator):
     rewards = []
@@ -154,7 +154,7 @@ generator = Generator(src_vocab_size, BATCH_SIZE, embedding_size, HIDDEN_DIM, em
 # target_lstm = TARGET_LSTM(src_vocab_size, BATCH_SIZE, EMB_DIM, HIDDEN_DIM, SEQ_LENGTH, START_TOKEN, target_params) # The oracle model
 
 #TODO change discriminator's embedding layer
-discriminator = Discriminator(sequence_length=20, num_classes=2, vocab_size=src_vocab_size, embedding_size=embedding_size, 
+discriminator = Discriminator(sequence_length=SEQ_LENGTH, num_classes=2, vocab_size=src_vocab_size, embedding_size=embedding_size, 
                             filter_sizes=dis_filter_sizes, num_filters=dis_num_filters, l2_reg_lambda=dis_l2_reg_lambda)
 
 
@@ -202,46 +202,50 @@ for _ in range(50):
 # merge rollout into genrater so the update rate 0.2->1(real time). Any side effects?
 # rollout = ROLLOUT(generator, 0.8)
 
-print ('#########################################################################')
-print ('Start Adversarial Training...')
-log.write('adversarial training...\n')
-for total_batch in range(TOTAL_BATCH):
-    # Train the generator for one step
-    for it in range(1):
-        samples = generator.generate(sess)
-        rewards = get_reward(sess, samples, 16, generator, discriminator)
-        feed = {generator.x: samples, generator.rewards: rewards}
-        _, g_loss = sess.run([generator.g_updates, generator.g_loss], feed_dict=feed)
+'''
+NOT TEST AT THIS TIME
+'''
+ 
+# print ('#########################################################################')
+# print ('Start Adversarial Training...')
+# log.write('adversarial training...\n')
+# for total_batch in range(TOTAL_BATCH):
+#     # Train the generator for one step
+#     for it in range(1):
+#         samples = generator.generate(sess)
+#         rewards = get_reward(sess, samples, 16, generator, discriminator)
+#         feed = {generator.x: samples, generator.rewards: rewards}
+#         _, g_loss = sess.run([generator.g_updates, generator.g_loss], feed_dict=feed)
 
-    # Test
-    if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
-        # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file)
-        # likelihood_data_loader.create_batches(eval_file)
-        # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
-        buffer = 'epoch:\t' + str(total_batch) + '\tg_loss:\t' + str(test_loss) + '\n'
-        print ('total_batch: ', total_batch, 'g_loss: ', test_loss)
-        log.write(buffer)
+#     # Test
+#     if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
+#         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file)
+#         # likelihood_data_loader.create_batches(eval_file)
+#         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
+#         buffer = 'epoch:\t' + str(total_batch) + '\tg_loss:\t' + str(test_loss) + '\n'
+#         print ('total_batch: ', total_batch, 'g_loss: ', test_loss)
+#         log.write(buffer)
 
-    # Update roll-out parameters
-    #rollout.update_params()
+#     # Update roll-out parameters
+#     #rollout.update_params()
 
-    # Train the discriminator
-    for _ in range(5):
-        generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file)
-        dis_data_loader.load_train_data(positive_file, negative_file)
+#     # Train the discriminator
+#     for _ in range(5):
+#         generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file)
+#         dis_data_loader.load_train_data(positive_file, negative_file)
 
-        for _ in range(3):
-            dis_data_loader.reset_pointer()
-            for it in range(dis_data_loader.num_batch):
-                x_batch, y_batch = dis_data_loader.next_batch()
-                feed = {
-                    discriminator.input_x: x_batch,
-                    discriminator.input_y: y_batch,
-                    discriminator.dropout_keep_prob: dis_dropout_keep_prob
-                }
-                _ = sess.run(discriminator.train_op, feed)
+#         for _ in range(3):
+#             dis_data_loader.reset_pointer()
+#             for it in range(dis_data_loader.num_batch):
+#                 x_batch, y_batch = dis_data_loader.next_batch()
+#                 feed = {
+#                     discriminator.input_x: x_batch,
+#                     discriminator.input_y: y_batch,
+#                     discriminator.dropout_keep_prob: dis_dropout_keep_prob
+#                 }
+#                 _ = sess.run(discriminator.train_op, feed)
 
-log.close()
+# log.close()
 
 
 

@@ -57,7 +57,7 @@ sequences_train = tokenizer.texts_to_sequences(ques)
 #print(ques[0])
 #print(sequences_train[0])
 # # Auto filled with 0
-data_train = pad_sequences(sequences_train, maxlen = MAX_LENGTH)
+data_train = pad_sequences(sequences_train, maxlen = MAX_LENGTH, padding='post', truncating='post')
 
 
 word_index = tokenizer.word_index
@@ -74,11 +74,12 @@ for word, i in word_index.items():
         embedding_matrix[i] = embedding_vector
 
 np.save(processed_glove,embedding_matrix)
-np.savetxt(processed_filename,data_train, delimiter=' ')
+np.savetxt(processed_filename,data_train, fmt="%d", delimiter=' ')
 
 print("Processing done.")
 print("Max length: ", MAX_LENGTH)
-print("Embedding shape: ", embedding_matrix.shape[0])
+print("Embedding shape: ", embedding_matrix.shape)
+print("Data shape: ", data_train.shape)
 
 
 # #Word embedding
