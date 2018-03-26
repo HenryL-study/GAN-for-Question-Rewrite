@@ -49,18 +49,19 @@ glove_embedding_filename = 'glove.twitter.27B.25d.txt'
 
 #Word embedding
 def loadGloVe(filename):
-    vocab = []
-    embd = []
-    vocab.append('unk') #装载不认识的词
-    embd.append([0]*embedding_size) #这个emb_size可能需要指定
-    file = codecs.open(filename, 'r', 'utf-8')
-    for line in file.readlines():
-        row = line.strip().split(' ')
-        vocab.append(row[0])
-        embd.append(row[1:])
-    print('GloVe loaded.')
-    file.close()
-    return vocab,embd
+    # vocab = []
+    # embd = []
+    # vocab.append('unk') #装载不认识的词
+    # embd.append([0]*embedding_size) #这个emb_size可能需要指定
+    # file = codecs.open(filename, 'r', 'utf-8')
+    # for line in file.readlines():
+    #     row = line.strip().split(' ')
+    #     vocab.append(row[0])
+    #     embd.append(row[1:])
+    # print('GloVe loaded.')
+    # file.close()
+    embd = numpy.load("filename")
+    return embd
 
 def generate_samples(sess, trainable_model, batch_size, generated_num, output_file):
     # Generate Samples
@@ -118,27 +119,28 @@ random.seed(SEED)
 np.random.seed(SEED)
 
 #Word embedding parameters
-vocab,embd = loadGloVe(filename)
-embedding_size = len(embd[0])
-#Add start & end & unknown & pad token
-PAD_TOKEN = 0
-vocab.insert(0, '<p_a_d>')
-embd.insert(0, ['0' for _ in range(embedding_size)])
-START_TOKEN = len(vocab)
-vocab.append('<s_t_a_r_t>')
-embd.append(['0' for _ in range(embedding_size)])
-END_TOKEN = len(vocab)
-vocab.append('<e_n_d>')
-embd.append(['0' for _ in range(embedding_size)])
-UKNOWN_TOKEN = len(vocab)
-vocab.append('<u_k_n_o_w_n>')
-embd.append(['0' for _ in range(embedding_size)])
-src_vocab_size = len(vocab)
-embedding = np.asarray(embd)
+embedding = loadGloVe(filename)
+embedding_size = embedding.shape[1]
+src_vocab_size = embedding.shape[0]
+# #Add start & end & unknown & pad token
+# PAD_TOKEN = 0
+# vocab.insert(0, '<p_a_d>')
+# embd.insert(0, ['0' for _ in range(embedding_size)])
+# START_TOKEN = len(vocab)
+# vocab.append('<s_t_a_r_t>')
+# embd.append(['0' for _ in range(embedding_size)])
+# END_TOKEN = len(vocab)
+# vocab.append('<e_n_d>')
+# embd.append(['0' for _ in range(embedding_size)])
+# UKNOWN_TOKEN = len(vocab)
+# vocab.append('<u_k_n_o_w_n>')
+# embd.append(['0' for _ in range(embedding_size)])
+# src_vocab_size = len(vocab)
+# embedding = np.asarray(embd)
 #vocab to int
-vocab_to_int = {}
-for i in range(src_vocab_size):
-    vocab_to_int[vocab[i]] = i
+# vocab_to_int = {}
+# for i in range(src_vocab_size):
+#     vocab_to_int[vocab[i]] = i
 
 print('Glove vector loaded. Total vocab: ', src_vocab_size, '. embedding_size: ', embedding_size)
 
