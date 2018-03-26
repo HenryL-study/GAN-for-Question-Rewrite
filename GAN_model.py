@@ -3,6 +3,7 @@
 import numpy as np
 import tensorflow as tf
 import random
+import codecs
 from dataloader import Gen_Data_loader, Dis_dataloader
 from generator_my import Generator
 from discriminator import Discriminator
@@ -19,7 +20,7 @@ HIDDEN_DIM = 32 # hidden state dimension of lstm cell
 SEQ_LENGTH = 100 # sequence length TODO need processing data
 START_TOKEN = None #
 PRE_EPOCH_NUM = 120 # supervise (maximum likelihood estimation) epochs
-BATCH_SIZE = 64
+BATCH_SIZE = 10 #64
 
 #########################################################################################
 #  Discriminator  Hyper-parameters
@@ -44,7 +45,7 @@ sess = tf.InteractiveSession()
 #Parameters
 src_vocab_size = None
 embedding_size = None
-glove_embedding_filename = 'glove.6B.50d.txt'
+glove_embedding_filename = 'glove.twitter.27B.25d.txt'
 
 #Word embedding
 def loadGloVe(filename):
@@ -52,7 +53,7 @@ def loadGloVe(filename):
     embd = []
     vocab.append('unk') #装载不认识的词
     embd.append([0]*embedding_size) #这个emb_size可能需要指定
-    file = open(filename,'r')
+    file = codecs.open(filename, 'r', 'utf-8')
     for line in file.readlines():
         row = line.strip().split(' ')
         vocab.append(row[0])
@@ -139,8 +140,10 @@ vocab_to_int = {}
 for i in range(src_vocab_size):
     vocab_to_int[vocab[i]] = i
 
+print('Glove vector loaded. Total vocab: ', src_vocab_size, '. embedding_size: ', embedding_size)
+
 gen_data_loader = Gen_Data_loader(BATCH_SIZE)
-likelihood_data_loader = Gen_Data_loader(BATCH_SIZE) # For testing
+#likelihood_data_loader = Gen_Data_loader(BATCH_SIZE) # For testing
 
 dis_data_loader = Dis_dataloader(BATCH_SIZE)
 
