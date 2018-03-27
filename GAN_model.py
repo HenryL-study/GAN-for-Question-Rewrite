@@ -167,7 +167,8 @@ sess.run(tf.global_variables_initializer())
 #generate_samples(sess, target_lstm, BATCH_SIZE, generated_num, positive_file)
 positive_file, eval_file = process_real_data()
 negative_file = 'save/generator_sample.txt'
-gen_data_loader.create_batches(positive_file)
+positive_len_file = 'question-len.txt'
+gen_data_loader.create_batches(positive_file, positive_len_file)
 
 log = open('save/experiment-log.txt', 'w')
 #  pre-train generator
@@ -187,7 +188,7 @@ print ('Start pre-training discriminator...')
 # Train 3 epoch on the generated data and do this for 50 times
 for _ in range(50):
     generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file)
-    dis_data_loader.load_train_data(positive_file, negative_file)
+    dis_data_loader.load_train_data(positive_file, positive_len_file, negative_file)
     for _ in range(3):
         dis_data_loader.reset_pointer()
         for it in range(dis_data_loader.num_batch):
