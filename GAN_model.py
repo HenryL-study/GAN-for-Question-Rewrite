@@ -80,8 +80,8 @@ def pre_train_epoch(sess, trainable_model, data_loader):
     data_loader.reset_pointer()
 
     for it in range(data_loader.num_batch):
-        batch = data_loader.next_batch()
-        _, g_loss = trainable_model.pretrain_step(sess, batch)
+        batch, ques_len = data_loader.next_batch()
+        _, g_loss = trainable_model.pretrain_step(sess, batch, ques_len)
         supervised_g_losses.append(g_loss)
 
     return np.mean(supervised_g_losses)
