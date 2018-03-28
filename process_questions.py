@@ -57,7 +57,7 @@ tokenizer.fit_on_texts(ques)
 sequences_train = tokenizer.texts_to_sequences(ques)
 ques_len = codecs.open(processed_ques_len,'w', 'utf-8')
 for seq in sequences_train:
-    ques_len.write(len(seq))
+    ques_len.write(str(len(seq)))
     ques_len.write(" ")
 ques_len.close()
 #print(ques[0])

@@ -7,3 +7,4 @@ test.py
 glove-vec.npy
 question-vec.txt
 *.pyc
+question-len.txt

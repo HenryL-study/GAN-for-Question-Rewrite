@@ -1,5 +1,6 @@
 #-*- coding:utf-8 -*-
 import tensorflow as tf
+from tensorflow.python.layers.core import Dense
 
 class Generator(object):
 
@@ -26,6 +27,7 @@ class Generator(object):
         self.encode_layer_size = 2
         self.decode_rnn_size = 50
         self.decode_layer_size = 2
+        self.atten_depth = 50 #The depth of the query mechanism
 
         self.given_num = tf.placeholder(tf.int32, shape=(1))
 
@@ -42,8 +44,9 @@ class Generator(object):
         with tf.device("/cpu:0"):
             #self.processed_x = tf.transpose(tf.nn.embedding_lookup(self.g_embeddings, self.x), perm=[1, 0, 2])  # seq_length x batch_size x emb_dim
             self.processed_x = tf.nn.embedding_lookup(self.g_embeddings, self.x)
+            print("processed_x shape: ", self.processed_x.shape)
         
-        encoder_output, encoder_state = self.get_encoder_layer(self.processed_x, self.encode_rnn_size, self.encode_layer_size, target_sequence_length) #sourse seqlenth
+        encoder_output, encoder_state = self.get_encoder_layer(self.processed_x, self.encode_rnn_size, self.encode_layer_size, self.target_sequence_length) #sourse seqlenth
 
         training_decoder_output, predicting_decoder_output, rollout_decoder_output = self.decoding_layer(
             self.decode_layer_size, 
@@ -99,7 +102,7 @@ class Generator(object):
         embeddings = tf.get_variable("embeddings", shape=self.emb_data.shape, initializer=tf.constant_initializer(self.emb_data), trainable=True)
         return embeddings
 
-    def get_encoder_layer(input_data, rnn_size, num_layers, source_sequence_length):
+    def get_encoder_layer(self, input_data, rnn_size, num_layers, source_sequence_length):
         
         '''
         Encoder layer
@@ -138,24 +141,29 @@ class Generator(object):
                                                     cell_bw=b_cell,
                                                     inputs=input_data,
                                                     sequence_length=source_sequence_length,
-                                                    dtype=tf.float32, time_major=True)
+                                                    dtype=tf.float32, time_major=False)
 
         encoder_output = tf.concat((encoder_fw_outputs, encoder_bw_outputs), 2)
+        print("encoder_outputs: ", encoder_output)
 
-        encoder_final_state_c = tf.concat(
-            (encoder_fw_final_state.c, encoder_bw_final_state.c), 1)
+        '''
+        Don't need now
+        '''
+        encoder_state = None
+        # encoder_final_state_c = tf.concat(
+        #     (encoder_fw_final_state.c, encoder_bw_final_state.c), 1)
 
-        encoder_final_state_h = tf.concat(
-            (encoder_fw_final_state.h, encoder_bw_final_state.h), 1)
+        # encoder_final_state_h = tf.concat(
+        #     (encoder_fw_final_state.h, encoder_bw_final_state.h), 1)
 
-        encoder_state = LSTMStateTuple(
-            c=encoder_final_state_c,
-            h=encoder_final_state_h
-        )
+        # encoder_state = LSTMStateTuple(
+        #     c=encoder_final_state_c,
+        #     h=encoder_final_state_h
+        # )
 
         return encoder_output, encoder_state
 
-    def decoding_layer(num_layers, rnn_size, target_sequence_length, 
+    def decoding_layer(self, num_layers, rnn_size, target_sequence_length, 
                         max_target_sequence_length, encoder_state, encoder_output, decoder_input):
         '''
         构造Decoder层
@@ -181,12 +189,20 @@ class Generator(object):
             decoder_cell = tf.contrib.rnn.LSTMCell(rnn_size, initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
             return decoder_cell
         cell = tf.contrib.rnn.MultiRNNCell([get_decoder_cell(rnn_size) for _ in range(num_layers)])
+        #Attention
+        #encoder_output = tf.transpose(encoder_output, perm=[1, 0, 2]) #time * batch * outputsize
+        memory = encoder_output
+        attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(
+            num_units=self.atten_depth, memory=memory,
+            memory_sequence_length=self.target_sequence_length)
+        attn_cell = tf.contrib.seq2seq.AttentionWrapper(
+            cell, attention_mechanism, attention_layer_size=(self.atten_depth + rnn_size))
         
         # 3. Output全连接层
         output_layer = Dense(target_vocab_size,
                             kernel_initializer = tf.truncated_normal_initializer(mean = 0.0, stddev=0.1))
 
-
+        print("max_target_sequence_length: ", max_target_sequence_length)
         # 4. Training decoder
         with tf.variable_scope("decode"):
             # 得到help对象
@@ -194,11 +210,11 @@ class Generator(object):
                                                                 sequence_length=target_sequence_length,
                                                                 time_major=False)
             # 构造decoder
-            training_decoder = tf.contrib.seq2seq.BasicDecoder(cell,
+            training_decoder = tf.contrib.seq2seq.BasicDecoder(attn_cell,
                                                             training_helper,
-                                                            encoder_state,
+                                                            attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size),
                                                             output_layer) 
-            training_decoder_output, _ = tf.contrib.seq2seq.dynamic_decode(training_decoder,
+            training_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(training_decoder,
                                                                         impute_finished=True,
                                                                         maximum_iterations=max_target_sequence_length)
         # 5. Predicting decoder
@@ -210,11 +226,11 @@ class Generator(object):
             predicting_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(self.g_embeddings,
                                                                     start_tokens,
                                                                     self.seq_end_token)
-            predicting_decoder = tf.contrib.seq2seq.BasicDecoder(cell,
+            predicting_decoder = tf.contrib.seq2seq.BasicDecoder(attn_cell,
                                                             predicting_helper,
-                                                            encoder_state,
+                                                            attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size),
                                                             output_layer)
-            predicting_decoder_output, _ = tf.contrib.seq2seq.dynamic_decode(predicting_decoder,
+            predicting_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(predicting_decoder,
                                                                 impute_finished=True,
                                                                 maximum_iterations=max_target_sequence_length)
 
@@ -226,11 +242,11 @@ class Generator(object):
             start_tokens = tf.tile(tf.constant([self.seq_start_token], dtype=tf.int32), [self.batch_size], 
                                 name='start_tokens')
             start_tokens_embed = tf.nn.embedding_lookup(self.g_embeddings, start_tokens)
-            pad_step_embedded = tf.zeros([self.batch_size, self.encode_rnn_size*2+self.emb_dim], dtype=tf.float32)
+            pad_step_embedded = tf.zeros([self.batch_size, self.emb_dim], dtype=tf.float32)
 
             def initial_fn():
                 initial_elements_finished = (0 >= target_sequence_length)  # all False at the initial step
-                initial_input = tf.concat((start_tokens_embed, encoder_output[0]), 1)
+                initial_input = start_tokens_embed
                 return initial_elements_finished, initial_input
 
             def sample_fn(time, outputs, state):
@@ -247,12 +263,12 @@ class Generator(object):
                 # time is a tensor finish compare
                 def f1():
                     pred_embedding = tf.nn.embedding_lookup(self.g_embeddings, sample_ids)
-                    next_input = tf.concat((pred_embedding, encoder_output[time]), 1)
+                    next_input = pred_embedding
                     return next_input
 
                 def f2():
                     pred_embedding = self.processed_x[:,time[0],:]
-                    next_input = tf.concat((pred_embedding, encoder_output[time]), 1)
+                    next_input = pred_embedding
 
                     return next_input
 
@@ -267,11 +283,11 @@ class Generator(object):
 
             rollout_helper = tf.contrib.seq2seq.CustomHelper(initial_fn, sample_fn, next_inputs_fn)
 
-            rollout_decoder = tf.contrib.seq2seq.BasicDecoder(cell,
+            rollout_decoder = tf.contrib.seq2seq.BasicDecoder(attn_cell,
                                                             rollout_helper,
-                                                            encoder_state,
+                                                            attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size),
                                                             output_layer)
-            rollout_decoder_output, _ = tf.contrib.seq2seq.dynamic_decode(rollout_decoder,
+            rollout_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(rollout_decoder,
                                                                 impute_finished=True,
                                                                 maximum_iterations=max_target_sequence_length)
         
