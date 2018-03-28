@@ -21,6 +21,7 @@ question_filename = 'question-simple.txt'
 processed_filename = 'question-vec.txt'
 processed_ques_len = 'question-len.txt'
 processed_glove = 'glove-vec'
+index_to_word = 'index_to_word.txt'
 
 
 ques = []
@@ -72,12 +73,19 @@ print('Found %s unique tokens.' % len(word_index))
 # Prepare embedding matrix
 num_words = len(word_index)+1
 embedding_matrix = np.zeros((num_words, embedding_size))
+in_to_word = ["<pad>"]
 for word, i in word_index.items():
     #print(word)
     embedding_vector = embedding_index.get(word)
     if embedding_vector is not None:
         # Words not found in embedding index will be all zeros
         embedding_matrix[i] = embedding_vector
+    in_to_word.insert(i, word)
+
+in_w = codecs.open(index_to_word,'w', 'utf-8')
+for w in in_to_word:
+    in_w.write(w+'\n')
+in_w.close()
 
 np.save(processed_glove,embedding_matrix)
 np.savetxt(processed_filename,data_train, fmt="%d", delimiter=' ')

@@ -8,3 +8,6 @@ glove-vec.npy
 question-vec.txt
 *.pyc
 question-len.txt
+pre_train_sample.txt
+index_to_word.txt
+save/experiment-log.txt

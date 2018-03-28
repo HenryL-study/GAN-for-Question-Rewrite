@@ -81,10 +81,11 @@ def pre_train_epoch(sess, trainable_model, data_loader):
 
     for it in range(data_loader.num_batch):
         batch, ques_len = data_loader.next_batch()
-        _, g_loss = trainable_model.pretrain_step(sess, batch, ques_len)
+        g_loss, _, sample = trainable_model.pretrain_step(sess, batch, ques_len)
+        #print("g_loss: ", g_loss)
         supervised_g_losses.append(g_loss)
 
-    return np.mean(supervised_g_losses)
+    return np.mean(supervised_g_losses), sample
 
 def process_real_data():
     #processing in process_questions.py
@@ -174,16 +175,18 @@ log = open('save/experiment-log.txt', 'w')
 #  pre-train generator
 print ('Start pre-training...')
 log.write('pre-training...\n')
+sample = None
 for epoch in range(PRE_EPOCH_NUM):
-    loss = pre_train_epoch(sess, generator, gen_data_loader)
+    loss, sample = pre_train_epoch(sess, generator, gen_data_loader)
     if epoch % 5 == 0:
         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file)
         # likelihood_data_loader.create_batches(eval_file)
         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
         print ('pre-train epoch ', epoch, 'generator_loss ', loss)
-        buffer = 'epoch:\t'+ str(epoch) + '\tgenerator_loss:\t' + str(test_loss) + '\n'
+        buffer = 'epoch:\t'+ str(epoch) + '\tgenerator_loss:\t' + str(loss) + '\n'
         log.write(buffer)
 
+print ('sample: ', sample)
 # print ('Start pre-training discriminator...')
 # # Train 3 epoch on the generated data and do this for 50 times
 # for _ in range(50):
