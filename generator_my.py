@@ -29,7 +29,7 @@ class Generator(object):
         self.decode_layer_size = 2
         self.atten_depth = 50 #The depth of the query mechanism
 
-        self.given_num = tf.placeholder(tf.int32, shape=(1))
+        self.given_num = tf.placeholder(tf.int32, shape=())
 
         #with tf.variable_scope('generator'):
         self.g_embeddings = tf.Variable(self.init_matrix([self.num_emb, self.emb_dim]))
@@ -64,20 +64,22 @@ class Generator(object):
         
         masks = tf.sequence_mask(self.target_sequence_length, self.max_sequence_length, dtype=tf.float32, name='masks')
         self.pretrain_loss = tf.contrib.seq2seq.sequence_loss(
-            g_pretrain_predictions,
+            self.g_pretrain_predictions,
             self.x,
             masks)
         # training updates
         pretrain_opt = self.g_optimizer(self.learning_rate)
 
-        pre_gradients = pretrain_opt.compute_gradients(pretrain_loss)
+        pre_gradients = pretrain_opt.compute_gradients(self.pretrain_loss)
         self.pretrain_grad_zip = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in pre_gradients if grad is not None]
-        self.pretrain_updates = optimizer.apply_gradients(self.pretrain_grad_zip)
+        self.pretrain_updates = pretrain_opt.apply_gradients(self.pretrain_grad_zip)
 
         #######################################################################################################
         #  Unsupervised Training
         #######################################################################################################
-        self.g_predictions = predicting_decoder_output.sample_id
+        #print("id", predicting_decoder_output.sample_id)
+        #print("rnn", predicting_decoder_output.rnn_output)
+        self.g_predictions = predicting_decoder_output.rnn_output
         self.g_rollout = rollout_decoder_output.sample_id
         self.g_loss = -tf.reduce_sum(
             tf.reduce_sum(
@@ -87,9 +89,9 @@ class Generator(object):
         )
 
         g_opt = self.g_optimizer(self.learning_rate)
-        g_gradients = g_opt.compute_gradients(g_loss)
+        g_gradients = g_opt.compute_gradients(self.g_loss)
         self.g_grad_zip = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in g_gradients if grad is not None]
-        self.g_updates = optimizer.apply_gradients(self.g_grad_zip)
+        self.g_updates = g_opt.apply_gradients(self.g_grad_zip)
 
 
     def init_matrix(self, shape):
@@ -261,20 +263,19 @@ class Generator(object):
             def next_inputs_fn(time, outputs, state, sample_ids):
                 # 输入是h_i+o_{i-1}+c_i
                 # time is a tensor finish compare
+                print("time: ", time) 
                 def f1():
                     pred_embedding = tf.nn.embedding_lookup(self.g_embeddings, sample_ids)
                     next_input = pred_embedding
                     return next_input
 
                 def f2():
-                    pred_embedding = self.processed_x[:,time[0],:]
+                    pred_embedding = self.processed_x[:,time,:]
                     next_input = pred_embedding
-
                     return next_input
 
-                next_input = tf.cond(tf.less(given_num, time[0]), f2, f1)
-
-                    
+                next_input = tf.cond(tf.less(self.given_num, time), f2, f1)
+  
                 elements_finished = (time >= target_sequence_length)  # this operation produces boolean tensor of [batch_size]
                 all_finished = tf.reduce_all(elements_finished)  # -> boolean scalar
                 next_inputs = tf.cond(all_finished, lambda: pad_step_embedded, lambda: next_input)
