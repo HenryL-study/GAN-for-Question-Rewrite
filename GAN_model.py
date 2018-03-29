@@ -248,25 +248,33 @@ TEST BEGIN @3.29
 print ('#########################################################################')
 print ('Start Adversarial Training...')
 log.write('adversarial training...\n')
+sampel_log = open('save/sample-log.txt', 'w')
 gen_data_loader.reset_pointer()
 for total_batch in range(TOTAL_BATCH):
     # Train the generator for one step
+    samples = None
     for it in range(1):
         batch, ques_len = gen_data_loader.next_batch()
         samples = generator.generate(sess, batch, ques_len)
         rewards = get_reward(sess, samples, 16, generator, discriminator)
-        print("rewards sample: ", rewards[0])
+        # print("rewards sample: ", rewards[0])
         feed = {generator.x: samples, generator.rewards: rewards, generator.target_sequence_length: ques_len}
         _, g_loss = sess.run([generator.g_updates, generator.g_loss], feed_dict=feed)
     
     buffer = 'epoch:\t' + str(total_batch) + '\tg_loss:\t' + str(g_loss) + '\n'
     print ('total_batch: ', total_batch, 'g_loss: ', g_loss)
     log.write(buffer)
-    # Test
-    # if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
+    # write sample
+    if total_batch % 10 == 0 or total_batch == TOTAL_BATCH - 1:
         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
         # likelihood_data_loader.create_batches(eval_file)
         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
+        for seq in samples:
+            for word in seq:
+                sampel_log.write(str(word))
+                sampel_log.write(" ")
+            sampel_log.write("\n")
+
 
 
     # Update roll-out parameters
@@ -295,7 +303,7 @@ for total_batch in range(TOTAL_BATCH):
         print ('\t\t\t\t\ttotal_batch: ', total_batch, 'd_loss: ', d_loss)
 
 log.close()
-
+sampel_log.close()
 
 
 
