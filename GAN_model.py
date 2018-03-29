@@ -74,6 +74,8 @@ def generate_samples(sess, trainable_model, batch_size, generated_num, output_fi
 
     with open(output_file, 'w') as fout:
         for poem in generated_samples:
+            if len(poem) != SEQ_LENGTH:
+                print("Error: generate len: ", len(poem))
             buffer = ' '.join([str(x) for x in poem]) + '\n'
             fout.write(buffer)
 
@@ -85,7 +87,7 @@ def pre_train_epoch(sess, trainable_model, data_loader):
     for it in range(data_loader.num_batch):
         batch, ques_len = data_loader.next_batch()
         g_loss, _, sample = trainable_model.pretrain_step(sess, batch, ques_len)
-        #print("g_loss: ", g_loss)
+        # print("sample shape: ", sample[0])
         supervised_g_losses.append(g_loss)
 
     return np.mean(supervised_g_losses), sample
@@ -178,67 +180,67 @@ log = open('save/experiment-log.txt', 'w')
 '''
 Loading model. To retrain model uncomment to line 235
 '''
-# #  pre-train generator
-# print ('Start pre-training...')
-# log.write('pre-training...\n')
-# sample = None
-# for epoch in range(PRE_EPOCH_NUM):
-#     loss, sample = pre_train_epoch(sess, generator, gen_data_loader)
-#     if epoch % 5 == 0:
-#         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
-#         # likelihood_data_loader.create_batches(eval_file)
-#         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
-#         print ('pre-train epoch ', epoch, 'generator_loss ', loss)
-#         buffer = 'epoch:\t'+ str(epoch) + '\tgenerator_loss:\t' + str(loss) + '\n'
-#         log.write(buffer)
+#  pre-train generator
+print ('Start pre-training...')
+log.write('pre-training...\n')
+sample = None
+for epoch in range(PRE_EPOCH_NUM):
+    loss, sample = pre_train_epoch(sess, generator, gen_data_loader)
+    if epoch % 5 == 0:
+        # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
+        # likelihood_data_loader.create_batches(eval_file)
+        # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
+        print ('pre-train epoch ', epoch, 'generator_loss ', loss)
+        buffer = 'epoch:\t'+ str(epoch) + '\tgenerator_loss:\t' + str(loss) + '\n'
+        log.write(buffer)
 
-# print ('sample: ', sample)
-# print ('Start pre-training discriminator...')
-# # Train 3 epoch on the generated data and do this for 50 times
-# for _ in range(50):
-#     generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file, gen_data_loader)
-#     dis_data_loader.load_train_data(positive_file, positive_len_file, negative_file)
-#     for _ in range(3):
-#         dis_data_loader.reset_pointer()
-#         for it in range(dis_data_loader.num_batch):
-#             x_batch, y_batch, x_len = dis_data_loader.next_batch()
-#             feed = {
-#                 discriminator.input_x: x_batch,
-#                 discriminator.input_y: y_batch,
-#                 discriminator.dropout_keep_prob: dis_dropout_keep_prob
-#             }
-#             _, d_loss = sess.run([discriminator.train_op, discriminator.loss], feed)
+print ('sample: ', sample)
+print ('Start pre-training discriminator...')
+# Train 3 epoch on the generated data and do this for 50 times
+for _ in range(50):
+    generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file, gen_data_loader)
+    dis_data_loader.load_train_data(positive_file, positive_len_file, negative_file)
+    for _ in range(3):
+        dis_data_loader.reset_pointer()
+        for it in range(dis_data_loader.num_batch):
+            x_batch, y_batch, x_len = dis_data_loader.next_batch()
+            feed = {
+                discriminator.input_x: x_batch,
+                discriminator.input_y: y_batch,
+                discriminator.dropout_keep_prob: dis_dropout_keep_prob
+            }
+            _, d_loss = sess.run([discriminator.train_op, discriminator.loss], feed)
         
-#     print("d_loss: ", d_loss)
+    print("d_loss: ", d_loss)
 
-# #test discrimanator
-# # dis_data_loader.load_train_data(positive_file, positive_len_file, negative_file)
-# # dis_data_loader.reset_pointer()
-# # for it in range(dis_data_loader.num_batch):
-# #     x_batch, y_batch, x_len = dis_data_loader.next_batch()
-# #     feed = {
-# #         discriminator.input_x: x_batch,
-# #         discriminator.input_y: y_batch,
-# #         discriminator.dropout_keep_prob: dis_dropout_keep_prob
-# #     }
-# #     _, d_predict = sess.run([discriminator.train_op, discriminator.predictions], feed)
-# #     print("x_batch: ", x_batch)
-# #     print("y_batch: ", y_batch)
-# #     print("d_predict: ", d_predict)
-# #     break
+#test discrimanator
+# dis_data_loader.load_train_data(positive_file, positive_len_file, negative_file)
+# dis_data_loader.reset_pointer()
+# for it in range(dis_data_loader.num_batch):
+#     x_batch, y_batch, x_len = dis_data_loader.next_batch()
+#     feed = {
+#         discriminator.input_x: x_batch,
+#         discriminator.input_y: y_batch,
+#         discriminator.dropout_keep_prob: dis_dropout_keep_prob
+#     }
+#     _, d_predict = sess.run([discriminator.train_op, discriminator.predictions], feed)
+#     print("x_batch: ", x_batch)
+#     print("y_batch: ", y_batch)
+#     print("d_predict: ", d_predict)
+#     break
 
 
-# # merge rollout into genrater so the update rate 0.2->1(real time). Any side effects?
-# # rollout = ROLLOUT(generator, 0.8)
-# print("saving model...")
-# saver = tf.train.Saver()
-# saver.save(sess, "save/model/model.ckpt")
+# merge rollout into genrater so the update rate 0.2->1(real time). Any side effects?
+# rollout = ROLLOUT(generator, 0.8)
+print("saving model...")
+saver = tf.train.Saver()
+saver.save(sess, "save/model/model.ckpt")
 '''
 Loading model part.
 '''
-print("loading model...")
-saver = tf.train.Saver()
-saver.restore(sess, "save/model/model.ckpt")
+# print("loading model...")
+# saver = tf.train.Saver()
+# saver.restore(sess, "save/model/model.ckpt")
 
 
 '''
@@ -258,7 +260,7 @@ for total_batch in range(TOTAL_BATCH):
         samples = generator.generate(sess, batch, ques_len)
         rewards = get_reward(sess, samples, 16, generator, discriminator)
         # print("rewards sample: ", rewards[0])
-        feed = {generator.x: samples, generator.rewards: rewards, generator.target_sequence_length: ques_len}
+        feed = {generator.x: samples, generator.rewards: rewards, generator.target_sequence_length: ques_len, generator.max_sequence_length_per_batch: max(ques_len)}
         _, g_loss = sess.run([generator.g_updates, generator.g_loss], feed_dict=feed)
     
     buffer = 'epoch:\t' + str(total_batch) + '\tg_loss:\t' + str(g_loss) + '\n'
