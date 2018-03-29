@@ -198,13 +198,32 @@ for _ in range(50):
     for _ in range(3):
         dis_data_loader.reset_pointer()
         for it in range(dis_data_loader.num_batch):
-            x_batch, y_batch = dis_data_loader.next_batch()
+            x_batch, y_batch, x_len = dis_data_loader.next_batch()
             feed = {
                 discriminator.input_x: x_batch,
                 discriminator.input_y: y_batch,
                 discriminator.dropout_keep_prob: dis_dropout_keep_prob
             }
-            _ = sess.run(discriminator.train_op, feed)
+            _, d_loss = sess.run([discriminator.train_op, discriminator.loss], feed)
+        
+    print("d_loss: ", d_loss)
+
+#test discrimanator
+# dis_data_loader.load_train_data(positive_file, positive_len_file, negative_file)
+# dis_data_loader.reset_pointer()
+# for it in range(dis_data_loader.num_batch):
+#     x_batch, y_batch, x_len = dis_data_loader.next_batch()
+#     feed = {
+#         discriminator.input_x: x_batch,
+#         discriminator.input_y: y_batch,
+#         discriminator.dropout_keep_prob: dis_dropout_keep_prob
+#     }
+#     _, d_predict = sess.run([discriminator.train_op, discriminator.predictions], feed)
+#     print("x_batch: ", x_batch)
+#     print("y_batch: ", y_batch)
+#     print("d_predict: ", d_predict)
+#     break
+
 
 # merge rollout into genrater so the update rate 0.2->1(real time). Any side effects?
 # rollout = ROLLOUT(generator, 0.8)

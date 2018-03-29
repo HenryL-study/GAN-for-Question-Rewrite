@@ -60,7 +60,7 @@ class Dis_dataloader():
                 line = line.split()
                 parse_line = [int(x) for x in line]
                 positive_examples.append(parse_line)
-        with open(data_len_file, 'r') as f:
+        with open(positive_len_file, 'r') as f:
             for line in f:
                 line = line.strip()
                 line = line.split()
