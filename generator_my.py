@@ -297,14 +297,15 @@ class Generator(object):
         
         return training_decoder_output, predicting_decoder_output, rollout_decoder_output
     
-    def get_samples(self, input_x, given_num):
+    def get_samples(self, sess, input_x, given_num, input_len):
         '''
         sample once by the given time step
         Args:
         input_x: [batch_size, seq_length]
         given_num: given tokens use for generate
+        input_len: [seq_len]*batch_size
         '''
-        feed = {self.x: input_x, self.given_num: given_num}
+        feed = {self.x: input_x, self.given_num: given_num, self.target_sequence_length: input_len}
         samples = sess.run(self.g_rollout, feed)
 
         return samples
