@@ -38,7 +38,7 @@ dis_batch_size = 10 #64
 TOTAL_BATCH = 200 #TODO
 SEED = 88
 
-generated_num = 10000
+generated_num = 200 #10000
 
 sess = tf.InteractiveSession()
 
@@ -63,11 +63,14 @@ def loadGloVe(filename):
     embd = np.load(filename)
     return embd
 
-def generate_samples(sess, trainable_model, batch_size, generated_num, output_file):
+def generate_samples(sess, trainable_model, batch_size, generated_num, output_file, data_loader):
     # Generate Samples
     generated_samples = []
+    data_loader.reset_pointer()
+
     for _ in range(int(generated_num / batch_size)):
-        generated_samples.extend(trainable_model.generate(sess))
+        batch, ques_len = data_loader.next_batch()
+        generated_samples.extend(trainable_model.generate(sess, batch, ques_len))
 
     with open(output_file, 'w') as fout:
         for poem in generated_samples:
@@ -179,7 +182,7 @@ sample = None
 for epoch in range(PRE_EPOCH_NUM):
     loss, sample = pre_train_epoch(sess, generator, gen_data_loader)
     if epoch % 5 == 0:
-        # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file)
+        # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
         # likelihood_data_loader.create_batches(eval_file)
         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
         print ('pre-train epoch ', epoch, 'generator_loss ', loss)
@@ -187,21 +190,21 @@ for epoch in range(PRE_EPOCH_NUM):
         log.write(buffer)
 
 print ('sample: ', sample)
-# print ('Start pre-training discriminator...')
-# # Train 3 epoch on the generated data and do this for 50 times
-# for _ in range(50):
-#     generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file)
-#     dis_data_loader.load_train_data(positive_file, positive_len_file, negative_file)
-#     for _ in range(3):
-#         dis_data_loader.reset_pointer()
-#         for it in range(dis_data_loader.num_batch):
-#             x_batch, y_batch = dis_data_loader.next_batch()
-#             feed = {
-#                 discriminator.input_x: x_batch,
-#                 discriminator.input_y: y_batch,
-#                 discriminator.dropout_keep_prob: dis_dropout_keep_prob
-#             }
-#             _ = sess.run(discriminator.train_op, feed)
+print ('Start pre-training discriminator...')
+# Train 3 epoch on the generated data and do this for 50 times
+for _ in range(50):
+    generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file, gen_data_loader)
+    dis_data_loader.load_train_data(positive_file, positive_len_file, negative_file)
+    for _ in range(3):
+        dis_data_loader.reset_pointer()
+        for it in range(dis_data_loader.num_batch):
+            x_batch, y_batch = dis_data_loader.next_batch()
+            feed = {
+                discriminator.input_x: x_batch,
+                discriminator.input_y: y_batch,
+                discriminator.dropout_keep_prob: dis_dropout_keep_prob
+            }
+            _ = sess.run(discriminator.train_op, feed)
 
 # merge rollout into genrater so the update rate 0.2->1(real time). Any side effects?
 # rollout = ROLLOUT(generator, 0.8)
@@ -223,7 +226,7 @@ NOT TEST AT THIS TIME
 
 #     # Test
 #     if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
-#         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file)
+#         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
 #         # likelihood_data_loader.create_batches(eval_file)
 #         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
 #         buffer = 'epoch:\t' + str(total_batch) + '\tg_loss:\t' + str(test_loss) + '\n'
@@ -235,7 +238,7 @@ NOT TEST AT THIS TIME
 
 #     # Train the discriminator
 #     for _ in range(5):
-#         generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file)
+#         generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file, gen_data_loader)
 #         dis_data_loader.load_train_data(positive_file, negative_file)
 
 #         for _ in range(3):

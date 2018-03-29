@@ -11,3 +11,4 @@ question-len.txt
 pre_train_sample.txt
 index_to_word.txt
 save/experiment-log.txt
+save/generator_sample.txt

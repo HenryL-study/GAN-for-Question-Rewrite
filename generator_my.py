@@ -82,6 +82,7 @@ class Generator(object):
         #print("id", predicting_decoder_output.sample_id)
         #print("rnn", predicting_decoder_output.rnn_output)
         self.g_predictions = predicting_decoder_output.rnn_output
+        self.g_samples = predicting_decoder_output.sample_id
         self.g_rollout = rollout_decoder_output.sample_id
         self.g_loss = -tf.reduce_sum(
             tf.reduce_sum(
@@ -309,8 +310,8 @@ class Generator(object):
         return samples
 
 
-    def generate(self, sess):
-        outputs = sess.run(self.g_predictions)
+    def generate(self, sess, x, x_len):
+        outputs = sess.run(self.g_samples, feed_dict={self.x: x, self.target_sequence_length: x_len})
         return outputs
 
     def pretrain_step(self, sess, x, x_len):
