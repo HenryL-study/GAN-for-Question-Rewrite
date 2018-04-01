@@ -277,6 +277,8 @@ for total_batch in range(TOTAL_BATCH):
                 sampel_log.write(str(word))
                 sampel_log.write(" ")
             sampel_log.write("\n")
+        
+        print("rewards sample: ", rewards[0])
 
 
 
@@ -304,6 +306,10 @@ for total_batch in range(TOTAL_BATCH):
             d_loss += d_t
         d_loss = d_loss/3
         print ('\t\t\t\t\ttotal_batch: ', total_batch, 'd_loss: ', d_loss)
+
+    print("saving model...")
+    saver = tf.train.Saver()
+    saver.save(sess, "save/model/model.ckpt")
 
 log.close()
 sampel_log.close()
