@@ -1,7 +1,7 @@
 import codecs
 
 index_to_word = 'index_to_word.txt'
-sample_file = 'pre_train_sample.txt'
+sample_file = 'save/pre-train-sample.txt'
 
 int_to_word=[]
 in_w = codecs.open(index_to_word,'r', 'utf-8')

@@ -1,5 +1,7 @@
 #-*- coding:utf-8 -*-
+from __future__ import print_function
 import tensorflow as tf
+from Conv_lstm_cell import ConvLSTMCell
 from tensorflow.python.layers.core import Dense
 
 class Generator(object):
@@ -138,22 +140,32 @@ class Generator(object):
         #                                             dtype=tf.float32, time_major=True)
         #
         ########################################################################################################
-        def get_lstm_cell(rnn_size):
-            lstm_cell = tf.contrib.rnn.BasicLSTMCell(rnn_size)
-            return lstm_cell
+        #Conv LSTM params
+        shape = [self.emb_dim]
+        kernel = [3]
+        channels = 1
+        filters = 2
+
+
+        # def get_lstm_cell(rnn_size):
+        #     lstm_cell = tf.contrib.rnn.BasicLSTMCell(rnn_size)
+        #     return lstm_cell
         
-        f_cell = tf.contrib.rnn.MultiRNNCell([get_lstm_cell(rnn_size) for _ in range(num_layers)])
-        b_cell = tf.contrib.rnn.MultiRNNCell([get_lstm_cell(rnn_size) for _ in range(num_layers)])
+        # f_cell = tf.contrib.rnn.MultiRNNCell([get_lstm_cell(rnn_size) for _ in range(num_layers)])
+        # b_cell = tf.contrib.rnn.MultiRNNCell([get_lstm_cell(rnn_size) for _ in range(num_layers)])
+        f_cell = ConvLSTMCell(shape, filters, kernel)
+        b_cell = ConvLSTMCell(shape, filters, kernel)
+
 
         (encoder_fw_outputs, encoder_bw_outputs),\
         (encoder_fw_final_state, encoder_bw_final_state) = \
                 tf.nn.bidirectional_dynamic_rnn(cell_fw=f_cell,
                                                     cell_bw=b_cell,
-                                                    inputs=input_data,
+                                                    inputs=tf.expand_dims(input_data, 3),
                                                     sequence_length=source_sequence_length,
                                                     dtype=tf.float32, time_major=False)
 
-        encoder_output = tf.concat((encoder_fw_outputs, encoder_bw_outputs), 2)
+        encoder_output = tf.reshape(tf.concat((encoder_fw_outputs, encoder_bw_outputs), 3), [self.batch_size, self.max_sequence_length, -1])
         print("encoder_outputs: ", encoder_output)
 
         '''

@@ -16,3 +16,5 @@ save/model/checkpoint
 save/model/model.ckpt.data-00000-of-00001
 save/model/model.ckpt.index
 save/model/model.ckpt.meta
+save/sample-log.txt
+save/pre-train-sample.txt
