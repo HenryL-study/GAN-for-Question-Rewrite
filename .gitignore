@@ -18,3 +18,6 @@ save/model/model.ckpt.index
 save/model/model.ckpt.meta
 save/sample-log.txt
 save/pre-train-sample.txt
+data/Computers&Internet.txt
+data/FullOct2007.xml
+data/questions.txt`

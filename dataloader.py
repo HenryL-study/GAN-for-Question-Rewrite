@@ -6,7 +6,7 @@ class Gen_Data_loader():
         self.batch_size = batch_size
         self.token_stream = []
         self.num_stream = []
-        self.MAX_SEQ_LEN = 28 #change every time
+        self.MAX_SEQ_LEN = 200 #change every time
 
     def create_batches(self, data_file, data_len_file):
         self.token_stream = []
@@ -40,13 +40,13 @@ class Gen_Data_loader():
     def reset_pointer(self):
         self.pointer = 0
 
-#TODO change to given actual length
+#change to given actual length
 class Dis_dataloader():
     def __init__(self, batch_size):
         self.batch_size = batch_size
         self.sentences = np.array([])
         self.labels = np.array([])
-        self.MAX_SEQ_LEN = 28 #change every time
+        self.MAX_SEQ_LEN = 200 #change every time
 
     def load_train_data(self, positive_file, positive_len_file, negative_file):
         # Load data

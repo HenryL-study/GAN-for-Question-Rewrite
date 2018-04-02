@@ -1,4 +1,5 @@
 #-*- coding:utf-8 -*-
+from __future__ import print_function
 import os
 import codecs
 import re
@@ -16,7 +17,7 @@ from keras.preprocessing.sequence import pad_sequences
 #Parameters
 embedding_size = 25
 glove_embedding_filename = 'glove.twitter.27B.25d.txt'
-question_filename = 'question-simple.txt'
+question_filename = 'data/Computers&Internet.txt' #'question-simple.txt'
 
 processed_filename = 'question-vec.txt'
 processed_ques_len = 'question-len.txt'
@@ -26,7 +27,7 @@ index_to_word = 'index_to_word.txt'
 
 ques = []
 MAX_LENGTH = 0
-file = codecs.open(question_filename,'r', 'utf-8')
+file = open(question_filename,'r')
 for line in file.readlines():
     row = 'starttrats ' + line.strip() + ' enddne'
     row_ = text_to_word_sequence(row)
@@ -57,13 +58,40 @@ tokenizer = Tokenizer()
 tokenizer.fit_on_texts(ques)
 sequences_train = tokenizer.texts_to_sequences(ques)
 ques_len = codecs.open(processed_ques_len,'w', 'utf-8')
+ques_len_static = [0,0,0,0,0,0]
 for seq in sequences_train:
-    ques_len.write(str(len(seq)))
-    ques_len.write(" ")
+    if len(seq) < 100:
+        ques_len_static[0] += 1
+        ques_len.write(str(len(seq)))
+        ques_len.write(" ")
+    elif len(seq) < 200:
+        ques_len_static[1] += 1
+        ques_len.write(str(len(seq)))
+        ques_len.write(" ")
+    elif len(seq) < 300:
+        ques_len_static[2] += 1
+        ques_len.write("200")
+        ques_len.write(" ")
+    elif len(seq) < 400:
+        ques_len_static[3] += 1
+        ques_len.write("200")
+        ques_len.write(" ")
+    elif len(seq) < 500:
+        ques_len_static[4] += 1
+        ques_len.write("200")
+        ques_len.write(" ")
+    else:
+        ques_len_static[5] += 1
+        ques_len.write("200")
+        ques_len.write(" ")
 ques_len.close()
+
+print("ques_len_static:\n", ques_len_static)
 #print(ques[0])
 #print(sequences_train[0])
 # # Auto filled with 0
+# remove MAX_LENGTH setting below to use the max length of all sentences.
+MAX_LENGTH = 200
 data_train = pad_sequences(sequences_train, maxlen = MAX_LENGTH, padding='post', truncating='post')
 
 
@@ -84,7 +112,7 @@ for word, i in word_index.items():
 
 in_w = codecs.open(index_to_word,'w', 'utf-8')
 for w in in_to_word:
-    in_w.write(w+'\n')
+    in_w.write(unicode(w, 'utf8')+'\n')
 in_w.close()
 
 np.save(processed_glove,embedding_matrix)

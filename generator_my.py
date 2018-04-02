@@ -144,7 +144,7 @@ class Generator(object):
         shape = [self.emb_dim]
         kernel = [3]
         channels = 1
-        filters = 8
+        filters = 3
 
 
         # def get_lstm_cell(rnn_size):

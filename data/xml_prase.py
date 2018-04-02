@@ -1,7 +1,10 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
- 
+
+from __future__ import print_function
 import xml.sax
+import codecs
+
 # import sys
 # print(sys.getdefaultencoding())
 
@@ -33,12 +36,12 @@ class MovieHandler( xml.sax.ContentHandler ):
             self.subject = ""
             self.content = ""
         if tag == "ystfeed":
-            with open(output_file, 'w') as fout:
+            with codecs.open(output_file, 'w', 'utf-8') as fout:
                 for maincat, ques in self.ques.items():
                     print("maincat: ", maincat, "total questions: ", len(ques))
                     fout.write("<maincat> " + maincat + "\n")
                     for q in ques:
-                        fout.write(self.ques + "\n")
+                        fout.write(q + "\n")
             #print(self.ques)
     
     # 内容事件处理
@@ -62,4 +65,4 @@ if (  __name__ == "__main__"):
     Handler = MovieHandler()
     parser.setContentHandler( Handler )
     
-    parser.parse("small_sample.xml")
+    parser.parse("FullOct2007.xml")
