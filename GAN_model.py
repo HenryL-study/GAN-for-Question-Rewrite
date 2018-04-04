@@ -22,6 +22,8 @@ SEQ_LENGTH = 200 # sequence length TODO need processing data
 START_TOKEN = 1 #
 PRE_EPOCH_NUM = 120 # supervise (maximum likelihood estimation) epochs
 BATCH_SIZE = 16
+gen_filter_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20]
+gen_num_filters = [100, 200, 200, 200, 200, 100, 100, 100, 100, 100, 160, 160]
 
 #########################################################################################
 #  Discriminator  Hyper-parameters
@@ -156,7 +158,7 @@ gen_data_loader = Gen_Data_loader(BATCH_SIZE)
 
 dis_data_loader = Dis_dataloader(BATCH_SIZE)
 
-generator = Generator(src_vocab_size, BATCH_SIZE, embedding_size, HIDDEN_DIM, embedding, SEQ_LENGTH, START_TOKEN)
+generator = Generator(src_vocab_size, BATCH_SIZE, embedding_size, HIDDEN_DIM, embedding, SEQ_LENGTH, START_TOKEN, gen_filter_sizes, gen_num_filters)
 # target_params = cPickle.load(open('save/target_params_py3.pkl', 'rb'))
 # target_lstm = TARGET_LSTM(src_vocab_size, BATCH_SIZE, EMB_DIM, HIDDEN_DIM, SEQ_LENGTH, START_TOKEN, target_params) # The oracle model
 
