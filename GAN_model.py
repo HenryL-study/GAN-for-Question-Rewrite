@@ -88,7 +88,8 @@ def pre_train_epoch(sess, trainable_model, data_loader):
     for it in range(data_loader.num_batch):
         batch, ques_len = data_loader.next_batch()
         g_loss, _, sample = trainable_model.pretrain_step(sess, batch, ques_len)
-        # print("sample shape: ", sample[0])
+        if it % 1000 == 0:
+            print("loss in ", it, "/eproches: ", g_loss)
         supervised_g_losses.append(g_loss)
 
     return np.mean(supervised_g_losses), sample
@@ -187,7 +188,7 @@ log.write('pre-training...\n')
 sample = None
 for epoch in range(PRE_EPOCH_NUM):
     loss, sample = pre_train_epoch(sess, generator, gen_data_loader)
-    if epoch % 5 == 0:
+    if epoch % 1 == 0:
         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
         # likelihood_data_loader.create_batches(eval_file)
         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
