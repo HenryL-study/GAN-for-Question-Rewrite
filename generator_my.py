@@ -229,7 +229,7 @@ class Generator(object):
 
         print("max_target_sequence_length: ", max_target_sequence_length)
         #CNN encoder
-        cnn_context = self.getCnnEncoder(self.filter_sizes, self.num_filters)
+        cnn_context = self.getCnnEncoder(self.gen_filter_sizes, self.gen_num_filters)
 
         # 4. Training decoder
         with tf.variable_scope("decode"):
@@ -273,7 +273,7 @@ class Generator(object):
             start_tokens = tf.tile(tf.constant([self.seq_start_token], dtype=tf.int32), [self.batch_size], 
                                 name='start_tokens')
             start_tokens_embed = tf.nn.embedding_lookup(self.g_embeddings, start_tokens)
-            pad_step_embedded = tf.zeros([self.batch_size, self.emb_dim], dtype=tf.float32)
+            pad_step_embedded = tf.zeros([self.batch_size, self.emb_dim * 2], dtype=tf.float32)
 
             def initial_fn():
                 initial_elements_finished = (0 >= target_sequence_length)  # all False at the initial step
@@ -344,7 +344,7 @@ class Generator(object):
     def pretrain_step(self, sess, x, x_len):
         x_len_max = max(x_len)
         #print("x_len_max: ", x_len_max)
-        outputs = sess.run([self.pretrain_loss, self.pretrain_updates, self.g_pretrain_sample], feed_dict={self.x: x, self.target_sequence_length: x_len, self.max_sequence_length_per_batch: x_len_max})
+        outputs = sess.run([self.pretrain_loss, self.pretrain_updates, self.g_pretrain_sample, self.g_samples], feed_dict={self.x: x, self.target_sequence_length: x_len, self.max_sequence_length_per_batch: x_len_max})
         return outputs
 
     def g_optimizer(self, *args, **kwargs):
@@ -390,9 +390,9 @@ class Generator(object):
 
         with tf.variable_scope(scope):
             for idx in range(num_layers):
-                g = f(linear(input_, size, scope='highway_lin_%d' % idx))
+                g = f(self.linear(input_, size, scope='highway_lin_%d' % idx))
 
-                t = tf.sigmoid(linear(input_, size, scope='highway_gate_%d' % idx) + bias)
+                t = tf.sigmoid(self.linear(input_, size, scope='highway_gate_%d' % idx) + bias)
 
                 output = t * g + (1. - t) * input_
                 input_ = output
@@ -405,7 +405,7 @@ class Generator(object):
         for filter_size, num_filter in zip(filter_sizes, num_filters):
             with tf.name_scope("conv-maxpool-%s" % filter_size):
                 # Convolution Layer
-                filter_shape = [filter_size, embedding_size, 1, num_filter]
+                filter_shape = [filter_size, self.emb_dim, 1, num_filter]
                 W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
                 b = tf.Variable(tf.constant(0.1, shape=[num_filter]), name="b")
                 conv = tf.nn.conv2d(
@@ -419,7 +419,7 @@ class Generator(object):
                 # Maxpooling over the outputs
                 pooled = tf.nn.max_pool(
                     h,
-                    ksize=[1, sequence_length - filter_size + 1, 1, 1],
+                    ksize=[1, self.max_sequence_length - filter_size + 1, 1, 1],
                     strides=[1, 1, 1, 1],
                     padding='VALID',
                     name="pool")
@@ -431,17 +431,17 @@ class Generator(object):
 
         # Add highway
         with tf.name_scope("highway"):
-            self.h_highway = highway(self.h_pool_flat, self.h_pool_flat.get_shape()[1], 1, 0)
+            self.h_highway = self.highway(self.h_pool_flat, self.h_pool_flat.get_shape()[1], 1, 0)
 
         # Add dropout
         with tf.name_scope("dropout"):
-            self.h_drop = tf.nn.dropout(self.h_highway, self.dropout_keep_prob)
+            self.h_drop = tf.nn.dropout(self.h_highway, 0.75)
         
         with tf.name_scope("cnncontext"):
             W = tf.Variable(tf.truncated_normal([num_filters_total, self.emb_dim], stddev=0.1), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[self.emb_dim]), name="b")
-            l2_loss += tf.nn.l2_loss(W)
-            l2_loss += tf.nn.l2_loss(b)
+            # l2_loss += tf.nn.l2_loss(W)
+            # l2_loss += tf.nn.l2_loss(b)
             cnn_context = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
         
         return cnn_context #[batch_size, emb_dim]

@@ -4,6 +4,19 @@ from __future__ import print_function
 
 import tensorflow as tf
 from tensorflow.contrib.seq2seq.python.ops.helper import GreedyEmbeddingHelper
+from tensorflow.contrib.seq2seq.python.ops import decoder
+from tensorflow.python.framework import dtypes
+from tensorflow.python.framework import ops
+from tensorflow.python.layers import base as layers_base
+from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import control_flow_ops
+from tensorflow.python.ops import embedding_ops
+from tensorflow.python.ops import math_ops
+from tensorflow.python.ops import random_ops
+from tensorflow.python.ops import tensor_array_ops
+from tensorflow.python.ops.distributions import bernoulli
+from tensorflow.python.ops.distributions import categorical
+from tensorflow.python.util import nest
 
 
 class CustomGreedyEmbeddingHelper(GreedyEmbeddingHelper):
@@ -20,6 +33,7 @@ class CustomGreedyEmbeddingHelper(GreedyEmbeddingHelper):
         ValueError: if `start_tokens` is not a 1D tensor or `end_token` is not a
             scalar.
         """
+        self.cnn_context = cnn_context
         if callable(embedding):
             self._embedding_fn = embedding
         else:
@@ -44,5 +58,5 @@ class CustomGreedyEmbeddingHelper(GreedyEmbeddingHelper):
             all_finished,
             # If we're finished, the next_inputs value doesn't matter
             lambda: self._start_inputs,
-            lambda: tf.concat([self._embedding_fn(sample_ids), cnn_context], 1) #[batch_size, emb_dim*2] 
+            lambda: tf.concat([self._embedding_fn(sample_ids), self.cnn_context], 1)) #[batch_size, emb_dim*2] 
         return (finished, next_inputs, state)

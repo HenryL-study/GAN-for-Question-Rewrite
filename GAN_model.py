@@ -18,12 +18,12 @@ from discriminator import Discriminator
 #  Generator  Hyper-parameters
 ######################################################################################
 HIDDEN_DIM = 32 # hidden state dimension of lstm cell
-SEQ_LENGTH = 200 # sequence length TODO need processing data
+SEQ_LENGTH = 28 # sequence length TODO need processing data
 START_TOKEN = 1 #
-PRE_EPOCH_NUM = 120 # supervise (maximum likelihood estimation) epochs
-BATCH_SIZE = 16
-gen_filter_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20]
-gen_num_filters = [100, 200, 200, 200, 200, 100, 100, 100, 100, 100, 160, 160]
+PRE_EPOCH_NUM = 80 # supervise (maximum likelihood estimation) epochs
+BATCH_SIZE = 64
+gen_filter_sizes = [1, 2, 3, 9, 10, 15, 20]
+gen_num_filters = [100, 200, 200, 100, 100, 160, 160]
 
 #########################################################################################
 #  Discriminator  Hyper-parameters
@@ -33,15 +33,15 @@ dis_filter_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20]
 dis_num_filters = [100, 200, 200, 200, 200, 100, 100, 100, 100, 100, 160, 160]
 dis_dropout_keep_prob = 0.75
 dis_l2_reg_lambda = 0.2
-dis_batch_size = 16 #64
+dis_batch_size = 64 #64
 
 #########################################################################################
 #  Basic Training Parameters
 #########################################################################################
-TOTAL_BATCH = 2500 #TODO
+TOTAL_BATCH = 25 #TODO
 SEED = 88
 
-generated_num = 280000 #10000
+generated_num = 280 #10000
 
 sess = tf.InteractiveSession()
 
@@ -89,11 +89,11 @@ def pre_train_epoch(sess, trainable_model, data_loader):
 
     for it in range(data_loader.num_batch):
         batch, ques_len = data_loader.next_batch()
-        g_loss, _, sample = trainable_model.pretrain_step(sess, batch, ques_len)
+        g_loss, _, sample, g_sample = trainable_model.pretrain_step(sess, batch, ques_len)
         # print("sample shape: ", sample[0])
         supervised_g_losses.append(g_loss)
 
-    return np.mean(supervised_g_losses), sample
+    return np.mean(supervised_g_losses), sample, g_sample
 
 def process_real_data():
     #processing in process_questions.py
@@ -188,11 +188,13 @@ print ('Start pre-training...')
 log.write('pre-training...\n')
 sample = None
 for epoch in range(PRE_EPOCH_NUM):
-    loss, sample = pre_train_epoch(sess, generator, gen_data_loader)
+    loss, sample, g_sample = pre_train_epoch(sess, generator, gen_data_loader)
     if epoch % 5 == 0:
         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
         # likelihood_data_loader.create_batches(eval_file)
         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
+        print("sample shape: ", sample[0])
+        print("g_sample shape: ", g_sample[0])
         print ('pre-train epoch ', epoch, 'generator_loss ', loss)
         buffer = 'epoch:\t'+ str(epoch) + '\tgenerator_loss:\t' + str(loss) + '\n'
         log.write(buffer)
