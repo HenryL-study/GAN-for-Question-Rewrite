@@ -1,8 +1,9 @@
 #-*- coding:utf-8 -*-
 from __future__ import print_function
 import tensorflow as tf
-from Conv_lstm_cell import ConvLSTMCell
+# from Conv_lstm_cell import ConvLSTMCell
 from tensorflow.python.layers.core import Dense
+from CustomGreedyEmbeddingHelper import CustomGreedyEmbeddingHelper
 
 class Generator(object):
 
@@ -227,10 +228,15 @@ class Generator(object):
                             kernel_initializer = tf.truncated_normal_initializer(mean = 0.0, stddev=0.1))
 
         print("max_target_sequence_length: ", max_target_sequence_length)
+        #CNN encoder
+        cnn_context = self.getCnnEncoder(self.filter_sizes, self.num_filters)
+
         # 4. Training decoder
         with tf.variable_scope("decode"):
             # 得到help对象
-            training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=decoder_embed_input,
+            train_context = tf.expand_dims(cnn_context, 1)
+            train_seq_inputs = tf.concat([decoder_embed_input, tf.tile(train_context, [1,self.max_sequence_length,1])], 2)
+            training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=train_seq_inputs,
                                                                 sequence_length=target_sequence_length,
                                                                 time_major=False)
             # 构造decoder
@@ -247,9 +253,10 @@ class Generator(object):
             # 创建一个常量tensor并复制为batch_size的大小
             start_tokens = tf.tile(tf.constant([self.seq_start_token], dtype=tf.int32), [self.batch_size], 
                                 name='start_tokens')
-            predicting_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(self.g_embeddings,
-                                                                    start_tokens,
-                                                                    self.seq_end_token)
+            predicting_helper = CustomGreedyEmbeddingHelper(self.g_embeddings,
+                                                                start_tokens,
+                                                                self.seq_end_token,
+                                                                cnn_context)
             predicting_decoder = tf.contrib.seq2seq.BasicDecoder(attn_cell,
                                                             predicting_helper,
                                                             attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size),
@@ -270,7 +277,7 @@ class Generator(object):
 
             def initial_fn():
                 initial_elements_finished = (0 >= target_sequence_length)  # all False at the initial step
-                initial_input = start_tokens_embed
+                initial_input = tf.concat([start_tokens_embed, cnn_context], 1) #[batch_size, emb_dim*2]
                 return initial_elements_finished, initial_input
 
             def sample_fn(time, outputs, state):
@@ -288,12 +295,12 @@ class Generator(object):
                 print("time: ", time) 
                 def f1():
                     pred_embedding = tf.nn.embedding_lookup(self.g_embeddings, sample_ids)
-                    next_input = pred_embedding
+                    next_input = tf.concat([pred_embedding, cnn_context], 1) # pred_embedding
                     return next_input
 
                 def f2():
                     pred_embedding = self.processed_x[:,time,:]
-                    next_input = pred_embedding
+                    next_input = tf.concat([pred_embedding, cnn_context], 1)
                     return next_input
 
                 next_input = tf.cond(tf.less(self.given_num, time), f2, f1)
