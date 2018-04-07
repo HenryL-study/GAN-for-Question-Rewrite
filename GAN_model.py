@@ -18,10 +18,10 @@ from discriminator import Discriminator
 #  Generator  Hyper-parameters
 ######################################################################################
 HIDDEN_DIM = 32 # hidden state dimension of lstm cell
-SEQ_LENGTH = 28 # sequence length TODO need processing data
+SEQ_LENGTH = 100 # sequence length TODO need processing data
 START_TOKEN = 1 #
-PRE_EPOCH_NUM = 80 # supervise (maximum likelihood estimation) epochs
-BATCH_SIZE = 64
+PRE_EPOCH_NUM = 60 # supervise (maximum likelihood estimation) epochs
+BATCH_SIZE = 40
 gen_filter_sizes = [1, 2, 3, 9, 10, 15, 20]
 gen_num_filters = [100, 200, 200, 100, 100, 160, 160]
 
@@ -33,22 +33,22 @@ dis_filter_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20]
 dis_num_filters = [100, 200, 200, 200, 200, 100, 100, 100, 100, 100, 160, 160]
 dis_dropout_keep_prob = 0.75
 dis_l2_reg_lambda = 0.2
-dis_batch_size = 64 #64
+dis_batch_size = 40 #64
 
 #########################################################################################
 #  Basic Training Parameters
 #########################################################################################
-TOTAL_BATCH = 25 #TODO
+TOTAL_BATCH = 1000 #TODO
 SEED = 88
 
-generated_num = 280 #10000
+generated_num = 10000
 
 sess = tf.InteractiveSession()
 
 #Parameters
 src_vocab_size = None
 embedding_size = None
-glove_embedding_filename = 'glove-vec.npy'
+glove_embedding_filename = 'data/Informatique/glove-vec.npy'
 
 #Word embedding
 def loadGloVe(filename):
@@ -97,7 +97,7 @@ def pre_train_epoch(sess, trainable_model, data_loader):
 
 def process_real_data():
     #processing in process_questions.py
-    return 'question-vec.txt', 'not use now'  
+    return 'data/Informatique/question-vec.txt', 'not use now'  
 
 def get_reward(sess, input_x, rollout_num, generator, discriminator):
     rewards = []
@@ -176,7 +176,7 @@ sess.run(tf.global_variables_initializer())
 #generate_samples(sess, target_lstm, BATCH_SIZE, generated_num, positive_file)
 positive_file, eval_file = process_real_data()
 negative_file = 'save/generator_sample.txt'
-positive_len_file = 'question-len.txt'
+positive_len_file = 'data/Informatique/question-len.txt'
 gen_data_loader.create_batches(positive_file, positive_len_file)
 
 log = open('save/experiment-log.txt', 'w')
@@ -193,8 +193,6 @@ for epoch in range(PRE_EPOCH_NUM):
         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
         # likelihood_data_loader.create_batches(eval_file)
         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
-        print("sample shape: ", sample[0])
-        print("g_sample shape: ", g_sample[0])
         print ('pre-train epoch ', epoch, 'generator_loss ', loss)
         buffer = 'epoch:\t'+ str(epoch) + '\tgenerator_loss:\t' + str(loss) + '\n'
         log.write(buffer)

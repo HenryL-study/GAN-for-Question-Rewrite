@@ -88,10 +88,10 @@ class Generator(object):
         #print("rnn", predicting_decoder_output.rnn_output)
         self.g_predictions = predicting_decoder_output.rnn_output
         #pad
-        # len_to_fill = self.max_sequence_length - tf.shape(self.g_predictions)[1]
-        # #print("len_to_fill: ", len_to_fill)
-        # paddings = [[0,0],[0,len_to_fill],[0,0]]
-        # self.g_predictions = tf.pad(self.g_predictions, paddings)
+        len_to_fill = self.max_sequence_length - tf.shape(self.g_predictions)[1]
+        #print("len_to_fill: ", len_to_fill)
+        paddings = [[0,0],[0,len_to_fill],[0,0]]
+        self.g_predictions = tf.pad(self.g_predictions, paddings)
         self.g_samples = predicting_decoder_output.sample_id
         self.g_rollout = rollout_decoder_output.sample_id
         self.g_loss = -tf.reduce_sum(
