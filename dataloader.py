@@ -28,10 +28,10 @@ class Gen_Data_loader():
         self.num_test_batch = int(self.num_batch * 0.2)
         self.total_batch = self.num_batch
         self.num_batch -= self.num_test_batch
-        self.token_stream = self.token_stream[:self.num_batch * self.batch_size]
-        self.num_stream = self.num_stream[:self.num_batch * self.batch_size]
-        self.sequence_batch = np.split(np.array(self.token_stream), self.num_batch, 0)
-        self.sequence_len_batch = np.split(np.array(self.num_stream), self.num_batch)
+        self.token_stream = self.token_stream[:self.total_batch * self.batch_size]
+        self.num_stream = self.num_stream[:self.total_batch * self.batch_size]
+        self.sequence_batch = np.split(np.array(self.token_stream), self.total_batch, 0)
+        self.sequence_len_batch = np.split(np.array(self.num_stream), self.total_batch)
         self.pointer = 0
         self.test_pointer = 0
 
