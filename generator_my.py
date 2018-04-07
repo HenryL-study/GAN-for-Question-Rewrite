@@ -348,6 +348,12 @@ class Generator(object):
         #print("x_len_max: ", x_len_max)
         outputs = sess.run([self.pretrain_loss, self.pretrain_updates, self.g_pretrain_sample, self.g_samples], feed_dict={self.x: x, self.target_sequence_length: x_len, self.max_sequence_length_per_batch: x_len_max})
         return outputs
+    
+    def pretrain_test_step(self, sess, x, x_len):
+        x_len_max = max(x_len)
+        #print("x_len_max: ", x_len_max)
+        outputs = sess.run(self.pretrain_loss, feed_dict={self.x: x, self.target_sequence_length: x_len, self.max_sequence_length_per_batch: x_len_max})
+        return outputs
 
     def g_optimizer(self, *args, **kwargs):
         return tf.train.AdamOptimizer(*args, **kwargs)

@@ -41,7 +41,7 @@ dis_batch_size = 40 #64
 TOTAL_BATCH = 1000 #TODO
 SEED = 88
 
-generated_num = 10000
+generated_num = 8000
 
 sess = tf.InteractiveSession()
 
@@ -85,6 +85,7 @@ def generate_samples(sess, trainable_model, batch_size, generated_num, output_fi
 def pre_train_epoch(sess, trainable_model, data_loader):
     # Pre-train the generator using MLE for one epoch
     supervised_g_losses = []
+    supervised_g_test_losses = []
     data_loader.reset_pointer()
 
     for it in range(data_loader.num_batch):
@@ -93,7 +94,13 @@ def pre_train_epoch(sess, trainable_model, data_loader):
         # print("sample shape: ", sample[0])
         supervised_g_losses.append(g_loss)
 
-    return np.mean(supervised_g_losses), sample, g_sample
+    for it in range(data_loader.num_test_batch):
+        batch, ques_len = data_loader.next_test_batch()
+        g_test_loss= trainable_model.pretrain_test_step(sess, batch, ques_len)
+        # print("sample shape: ", sample[0])
+        supervised_g_test_losses.append(g_test_loss)
+
+    return np.mean(supervised_g_losses), np.mean(supervised_g_test_losses), sample, g_sample
 
 def process_real_data():
     #processing in process_questions.py
@@ -188,13 +195,13 @@ print ('Start pre-training...')
 log.write('pre-training...\n')
 sample = None
 for epoch in range(PRE_EPOCH_NUM):
-    loss, sample, g_sample = pre_train_epoch(sess, generator, gen_data_loader)
+    loss, test_loss, sample, g_sample = pre_train_epoch(sess, generator, gen_data_loader)
     if epoch % 5 == 0:
         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
         # likelihood_data_loader.create_batches(eval_file)
         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
-        print ('pre-train epoch ', epoch, 'generator_loss ', loss)
-        buffer = 'epoch:\t'+ str(epoch) + '\tgenerator_loss:\t' + str(loss) + '\n'
+        print ('pre-train epoch ', epoch, 'generator_loss ', loss, 'test_loss ', test_loss)
+        buffer = 'epoch:\t'+ str(epoch) + '\tgenerator_loss:\t' + str(loss) + '\ttest_loss:\t' + str(test_loss) + '\n'
         log.write(buffer)
 
 print ('sample: ', sample)
