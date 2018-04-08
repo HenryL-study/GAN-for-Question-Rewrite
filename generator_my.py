@@ -93,15 +93,22 @@ class Generator(object):
         len_to_fill = self.max_sequence_length - tf.shape(self.g_predictions)[1]
         #print("len_to_fill: ", len_to_fill)
         paddings = [[0,0],[0,len_to_fill],[0,0]]
-        self.g_predictions = tf.pad(self.g_predictions, paddings)
+        #self.g_predictions = tf.pad(self.g_predictions, paddings)
         self.g_samples = tf.pad(self.g_samples, [[0,0],[0,len_to_fill]])
         self.g_rollout = tf.pad(self.g_rollout, [[0,0],[0,len_to_fill]])
-        self.g_loss = -tf.reduce_sum(
-            tf.reduce_sum(
-                tf.one_hot(tf.to_int32(tf.reshape(self.x, [-1])), self.num_emb, 1.0, 0.0) * tf.log(
-                    tf.clip_by_value(tf.reshape(self.g_predictions, [-1, self.num_emb]), 1e-20, 1.0)
-                ), 1) * tf.reshape(self.rewards, [-1])
-        )
+
+        self.rewards_mask = masks * self.rewards[:,0:self.max_sequence_length_per_batch]
+
+        self.g_loss = tf.contrib.seq2seq.sequence_loss(
+            self.g_predictions,
+            self.x[:,0:self.max_sequence_length_per_batch],
+            self.rewards_mask)
+        # -tf.reduce_sum(
+        #     tf.reduce_sum(
+        #         tf.one_hot(tf.to_int32(tf.reshape(self.x, [-1])), self.num_emb, 1.0, 0.0) * tf.log(
+        #             tf.clip_by_value(tf.reshape(self.g_predictions, [-1, self.num_emb]), 1e-20, 1.0)
+        #         ), 1) * tf.reshape(self.rewards, [-1])
+        # )
 
         g_opt = self.g_optimizer(self.learning_rate)
         g_gradients = g_opt.compute_gradients(self.g_loss)
