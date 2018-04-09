@@ -17,12 +17,12 @@ from keras.preprocessing.sequence import pad_sequences
 #Parameters
 embedding_size = 25
 glove_embedding_filename = 'glove.twitter.27B.25d.txt'
-question_filename = 'data/Computers&Internet.txt' #'question-simple.txt'
+question_filename = 'data/Computer/Computers&Internet-1w.txt' #'question-simple.txt'
 
-processed_filename = 'question-vec.txt'
-processed_ques_len = 'question-len.txt'
-processed_glove = 'glove-vec'
-index_to_word = 'index_to_word.txt'
+processed_filename = 'data/Computer/question-vec.txt'
+processed_ques_len = 'data/Computer/question-len.txt'
+processed_glove = 'data/Computer/glove-vec'
+index_to_word = 'data/Computer/index_to_word.txt'
 
 
 ques = []
@@ -58,31 +58,35 @@ tokenizer = Tokenizer()
 tokenizer.fit_on_texts(ques)
 sequences_train = tokenizer.texts_to_sequences(ques)
 ques_len = codecs.open(processed_ques_len,'w', 'utf-8')
-ques_len_static = [0,0,0,0,0,0]
+ques_len_static = [0,0,0,0,0,0,0]
 for seq in sequences_train:
-    if len(seq) < 100:
+    if len(seq) < 50: 
         ques_len_static[0] += 1
         ques_len.write(str(len(seq)))
         ques_len.write(" ")
-    elif len(seq) < 200:
+    elif len(seq) < 100:
         ques_len_static[1] += 1
         ques_len.write(str(len(seq)))
         ques_len.write(" ")
-    elif len(seq) < 300:
+    elif len(seq) < 200:
         ques_len_static[2] += 1
-        ques_len.write("200")
+        ques_len.write("100")
+        ques_len.write(" ")
+    elif len(seq) < 300:
+        ques_len_static[3] += 1
+        ques_len.write("100")
         ques_len.write(" ")
     elif len(seq) < 400:
-        ques_len_static[3] += 1
-        ques_len.write("200")
+        ques_len_static[4] += 1
+        ques_len.write("100")
         ques_len.write(" ")
     elif len(seq) < 500:
-        ques_len_static[4] += 1
-        ques_len.write("200")
+        ques_len_static[5] += 1
+        ques_len.write("100")
         ques_len.write(" ")
     else:
-        ques_len_static[5] += 1
-        ques_len.write("200")
+        ques_len_static[6] += 1
+        ques_len.write("100")
         ques_len.write(" ")
 ques_len.close()
 
@@ -91,7 +95,7 @@ print("ques_len_static:\n", ques_len_static)
 #print(sequences_train[0])
 # # Auto filled with 0
 # remove MAX_LENGTH setting below to use the max length of all sentences.
-MAX_LENGTH = 200
+MAX_LENGTH = 100
 data_train = pad_sequences(sequences_train, maxlen = MAX_LENGTH, padding='post', truncating='post')
 
 
@@ -101,18 +105,18 @@ print('Found %s unique tokens.' % len(word_index))
 # Prepare embedding matrix
 num_words = len(word_index)+1
 embedding_matrix = np.zeros((num_words, embedding_size))
-in_to_word = ["<pad>"]
+in_to_word = {}
 for word, i in word_index.items():
     #print(word)
     embedding_vector = embedding_index.get(word)
     if embedding_vector is not None:
         # Words not found in embedding index will be all zeros
         embedding_matrix[i] = embedding_vector
-    in_to_word.insert(i, word)
+    in_to_word[i] = word
 
 in_w = codecs.open(index_to_word,'w', 'utf-8')
-for w in in_to_word:
-    in_w.write(unicode(w, 'utf8')+'\n')
+for i, word in in_to_word.items():
+    in_w.write(str(i) + ' ' + unicode(word, 'utf8')+'\n')
 in_w.close()
 
 np.save(processed_glove,embedding_matrix)

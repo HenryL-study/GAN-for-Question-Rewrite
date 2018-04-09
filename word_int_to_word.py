@@ -1,12 +1,13 @@
 import codecs
 
-index_to_word = 'index_to_word.txt'
-sample_file = 'save/pre-train-sample.txt'
+index_to_word = 'data/Informatique/index_to_word.txt'
+sample_file = 'save/sample-log.txt'
 
-int_to_word=[]
+int_to_word={0: "<pad>"}
 in_w = codecs.open(index_to_word,'r', 'utf-8')
 for w in in_w.readlines():
-    int_to_word.append(w.strip())
+    wid, word = w.strip().split(" ")
+    int_to_word[wid] = word
 in_w.close()
 
 sample = codecs.open(sample_file, 'r', 'utf-8')
