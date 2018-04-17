@@ -25,12 +25,12 @@ with codecs.open('questions.txt', 'r', 'utf-8') as fin:
             if flag and is_ans:
                 fans.write(line)
                 is_ans = False
-            else:
+            elif flag and not is_ans:
                 fout.write(line)
                 is_ans = True
-            i += 1
-            if i >= Max_item:
-                break
+                i += 1
+                if i >= Max_item:
+                    break
 
 fout.close()
 
