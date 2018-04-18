@@ -15,12 +15,15 @@ from keras.preprocessing.sequence import pad_sequences
 
 
 #Parameters
-embedding_size = 25
-glove_embedding_filename = 'glove.twitter.27B.25d.txt'
-question_filename = 'data/Computer/Computers&Internet-1w.txt' #'question-simple.txt'
+embedding_size = 200
+glove_embedding_filename = 'data/glove.twitter.27B.200d.txt'
+question_filename = 'data/Computer/Computers&Internet.txt' #'question-simple.txt'
+ans_filename = 'data/Computer/Computers&Internet_ans.txt' #'question-simple.txt'
 
 processed_filename = 'data/Computer/question-vec.txt'
 processed_ques_len = 'data/Computer/question-len.txt'
+processed_ansname = 'data/Computer/answer-vec.txt'
+processed_ans_len = 'data/Computer/answer-len.txt'
 processed_glove = 'data/Computer/glove-vec'
 index_to_word = 'data/Computer/index_to_word.txt'
 
@@ -33,6 +36,15 @@ for line in file.readlines():
     row_ = text_to_word_sequence(row)
     MAX_LENGTH = max(MAX_LENGTH, len(row_))
     ques.append(row)
+file.close()
+ans = []
+ANS_MAX_LENGTH = 0
+file = open(ans_filename,'r')
+for line in file.readlines():
+    row = 'starttrats ' + line.strip() + ' enddne'
+    row_ = text_to_word_sequence(row)
+    ANS_MAX_LENGTH = max(ANS_MAX_LENGTH, len(row_))
+    ans.append(row)
 file.close()
 
 embedding_index = {}
@@ -54,9 +66,12 @@ embedding_index['enddne'] = np.asarray(['0' for _ in range(embedding_size)], dty
 
 print('Found %s word vectors.' % len(embedding_index))
 
+total_texts = []
+total_texts = ques + ans
 tokenizer = Tokenizer()
-tokenizer.fit_on_texts(ques)
+tokenizer.fit_on_texts(total_texts)
 sequences_train = tokenizer.texts_to_sequences(ques)
+ans_train = tokenizer.texts_to_sequences(ans)
 ques_len = codecs.open(processed_ques_len,'w', 'utf-8')
 ques_len_static = [0,0,0,0,0,0,0]
 for seq in sequences_train:
@@ -89,14 +104,50 @@ for seq in sequences_train:
         ques_len.write("100")
         ques_len.write(" ")
 ques_len.close()
-
 print("ques_len_static:\n", ques_len_static)
+
+ans_len = codecs.open(processed_ans_len,'w', 'utf-8')
+ans_len_static = [0,0,0,0,0,0,0]
+for seq in ans_train:
+    if len(seq) < 50: 
+        ans_len_static[0] += 1
+        ans_len.write(str(len(seq)))
+        ans_len.write(" ")
+    elif len(seq) < 100:
+        ans_len_static[1] += 1
+        ans_len.write(str(len(seq)))
+        ans_len.write(" ")
+    elif len(seq) < 200:
+        ans_len_static[2] += 1
+        ans_len.write("100")
+        ans_len.write(" ")
+    elif len(seq) < 300:
+        ans_len_static[3] += 1
+        ans_len.write("100")
+        ans_len.write(" ")
+    elif len(seq) < 400:
+        ans_len_static[4] += 1
+        ans_len.write("100")
+        ans_len.write(" ")
+    elif len(seq) < 500:
+        ans_len_static[5] += 1
+        ans_len.write("100")
+        ans_len.write(" ")
+    else:
+        ans_len_static[6] += 1
+        ans_len.write("100")
+        ans_len.write(" ")
+ans_len.close()
+print("ans_len_static:\n", ans_len_static)
+
 #print(ques[0])
 #print(sequences_train[0])
 # # Auto filled with 0
 # remove MAX_LENGTH setting below to use the max length of all sentences.
 MAX_LENGTH = 100
 data_train = pad_sequences(sequences_train, maxlen = MAX_LENGTH, padding='post', truncating='post')
+ANS_MAX_LENGTH = 200
+ans_train = pad_sequences(sequences_train, maxlen = ANS_MAX_LENGTH, padding='post', truncating='post')
 
 
 word_index = tokenizer.word_index
@@ -121,6 +172,7 @@ in_w.close()
 
 np.save(processed_glove,embedding_matrix)
 np.savetxt(processed_filename,data_train, fmt="%d", delimiter=' ')
+np.savetxt(processed_ansname, ans_train, fmt="%d", delimiter=' ')
 
 print("Processing done.")
 print("Max length: ", MAX_LENGTH)
