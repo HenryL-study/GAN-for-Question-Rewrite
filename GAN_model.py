@@ -20,8 +20,8 @@ from discriminator import Discriminator
 HIDDEN_DIM = 32 # hidden state dimension of lstm cell
 SEQ_LENGTH = 100 # sequence length TODO need processing data
 START_TOKEN = 1 #
-PRE_EPOCH_NUM = 60 # supervise (maximum likelihood estimation) epochs
-BATCH_SIZE = 40
+PRE_EPOCH_NUM = 25 # supervise (maximum likelihood estimation) epochs
+BATCH_SIZE = 64
 gen_filter_sizes = [1, 2, 3, 9, 10, 15, 20]
 gen_num_filters = [100, 200, 200, 100, 100, 160, 160]
 
@@ -33,7 +33,7 @@ dis_filter_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20]
 dis_num_filters = [100, 200, 200, 200, 200, 100, 100, 100, 100, 100, 160, 160]
 dis_dropout_keep_prob = 0.75
 dis_l2_reg_lambda = 0.2
-dis_batch_size = 40 #64
+dis_batch_size = 64
 
 #########################################################################################
 #  Basic Training Parameters
@@ -41,14 +41,14 @@ dis_batch_size = 40 #64
 TOTAL_BATCH = 1000 #TODO
 SEED = 88
 
-generated_num = 8000
+generated_num = 10000
 
 sess = tf.InteractiveSession()
 
 #Parameters
 src_vocab_size = None
 embedding_size = None
-glove_embedding_filename = 'data/Informatique/glove-vec.npy'
+glove_embedding_filename = 'data/Computer/glove-vec.npy'
 
 #Word embedding
 def loadGloVe(filename):
@@ -104,7 +104,7 @@ def pre_train_epoch(sess, trainable_model, data_loader):
 
 def process_real_data():
     #processing in process_questions.py
-    return 'data/Informatique/question-vec.txt', 'not use now'  
+    return 'data/Computer/question-vec.txt', 'not use now'  
 
 def get_reward(sess, input_x, rollout_num, generator, discriminator):
     rewards = []
@@ -174,16 +174,17 @@ discriminator = Discriminator(sequence_length=SEQ_LENGTH, num_classes=2, vocab_s
                             filter_sizes=dis_filter_sizes, num_filters=dis_num_filters, l2_reg_lambda=dis_l2_reg_lambda)
 
 
-# config = tf.ConfigProto()
-# config.gpu_options.allow_growth = False #True
-sess = tf.Session()
+config = tf.ConfigProto()
+config.gpu_options.per_process_gpu_memory_fraction = 0.9  #allow_growth = False #True
+config.allow_soft_placement = True
+sess = tf.Session(config = config)
 sess.run(tf.global_variables_initializer())
 
 # First, creat the positive examples
 #generate_samples(sess, target_lstm, BATCH_SIZE, generated_num, positive_file)
 positive_file, eval_file = process_real_data()
 negative_file = 'save/generator_sample.txt'
-positive_len_file = 'data/Informatique/question-len.txt'
+positive_len_file = 'data/Computer/question-len.txt'
 gen_data_loader.create_batches(positive_file, positive_len_file)
 
 log = open('save/experiment-log.txt', 'w')
@@ -196,7 +197,7 @@ log.write('pre-training...\n')
 sample = None
 for epoch in range(PRE_EPOCH_NUM):
     loss, test_loss, sample, g_sample = pre_train_epoch(sess, generator, gen_data_loader)
-    if epoch % 5 == 0:
+    if epoch % 1 == 0:
         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
         # likelihood_data_loader.create_batches(eval_file)
         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
@@ -205,9 +206,12 @@ for epoch in range(PRE_EPOCH_NUM):
         log.write(buffer)
 
 print ('sample: ', sample)
+print("saving model...")
+saver = tf.train.Saver()
+saver.save(sess, "save/pre-model/model.ckpt")
 print ('Start pre-training discriminator...')
 # Train 3 epoch on the generated data and do this for 50 times
-for _ in range(50):
+for _ in range(20):
     generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file, gen_data_loader)
     dis_data_loader.load_train_data(positive_file, positive_len_file, negative_file)
     for _ in range(3):
@@ -244,17 +248,18 @@ for _ in range(50):
 # rollout = ROLLOUT(generator, 0.8)
 print("saving model...")
 saver = tf.train.Saver()
-saver.save(sess, "save/model/model.ckpt")
+saver.save(sess, "save/pre-model/model.ckpt")
 '''
 Loading model part.
 '''
 # print("loading model...")
 # saver = tf.train.Saver()
-# saver.restore(sess, "save/model/model.ckpt")
+# saver.restore(sess, "save/pre-model/model.ckpt")
 
 
 '''
 TEST BEGIN @3.29
+TEST 1     @4.18
 '''
  
 print ('#########################################################################')
@@ -265,7 +270,7 @@ gen_data_loader.reset_pointer()
 for total_batch in range(TOTAL_BATCH):
     # Train the generator for one step
     samples = None
-    for it in range(1):
+    for it in range(5):
         batch, ques_len = gen_data_loader.next_batch()
         samples = generator.generate(sess, batch, ques_len)
         rewards = get_reward(sess, samples, 16, generator, discriminator)
@@ -277,11 +282,17 @@ for total_batch in range(TOTAL_BATCH):
     print ('total_batch: ', total_batch, 'g_loss: ', g_loss)
     log.write(buffer)
     # write sample
-    if total_batch % 10 == 0 or total_batch == TOTAL_BATCH - 1:
+    if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
         # likelihood_data_loader.create_batches(eval_file)
         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
         for seq in samples:
+            for word in seq:
+                sampel_log.write(str(word))
+                sampel_log.write(" ")
+            sampel_log.write("\n")
+        sampel_log.write("###############-real-seq-#################")
+        for seq in batch:
             for word in seq:
                 sampel_log.write(str(word))
                 sampel_log.write(" ")
@@ -295,12 +306,14 @@ for total_batch in range(TOTAL_BATCH):
     #rollout.update_params()
 
     # Train the discriminator
-    for _ in range(5):
+    for _ in range(1):
+        if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
+            generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file + str(total_batch), gen_data_loader)
         generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file, gen_data_loader)
         dis_data_loader.load_train_data(positive_file, positive_len_file, negative_file)
 
         d_loss = 0
-        for _ in range(3):
+        for _ in range(2):
             dis_data_loader.reset_pointer()
             d_t = 0
             for it in range(dis_data_loader.num_batch):
@@ -318,7 +331,8 @@ for total_batch in range(TOTAL_BATCH):
 
     print("saving model...")
     saver = tf.train.Saver()
-    saver.save(sess, "save/model/model.ckpt")
+    saver.save(sess, "save/model/model.ckpt-" + str(total_batch))
+    print("Done")
 
 log.close()
 sampel_log.close()

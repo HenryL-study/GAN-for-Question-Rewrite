@@ -122,8 +122,8 @@ class Generator(object):
         #return tf.random_normal(shape, stddev=0.1)
         
         #TODO decide start & end
-        self.seq_start_token = 2
-        self.seq_end_token = 3
+        self.seq_start_token = 4
+        self.seq_end_token = 5
 
         embeddings = tf.get_variable("embeddings", shape=self.emb_data.shape, initializer=tf.constant_initializer(self.emb_data), trainable=True)
         return embeddings
