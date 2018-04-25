@@ -4,6 +4,7 @@ import tensorflow as tf
 # from Conv_lstm_cell import ConvLSTMCell
 from tensorflow.python.layers.core import Dense
 from CustomGreedyEmbeddingHelper import CustomGreedyEmbeddingHelper
+from Custombeam_search_decoder import CustomBeamSearchDecoder
 
 class Seq2seq_Model(object):
 
@@ -265,14 +266,24 @@ class Seq2seq_Model(object):
             # 创建一个常量tensor并复制为batch_size的大小
             start_tokens = tf.tile(tf.constant([self.seq_start_token], dtype=tf.int32), [self.batch_size], 
                                 name='start_tokens')
-            predicting_helper = CustomGreedyEmbeddingHelper(self.g_embeddings,
-                                                                start_tokens,
-                                                                self.seq_end_token,
-                                                                cnn_context)
-            predicting_decoder = tf.contrib.seq2seq.BasicDecoder(attn_cell,
-                                                            predicting_helper,
-                                                            attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size),
-                                                            output_layer)
+            # predicting_helper = CustomGreedyEmbeddingHelper(self.g_embeddings,
+            #                                                     start_tokens,
+            #                                                     self.seq_end_token,
+            #                                                     cnn_context)
+            # predicting_decoder = tf.contrib.seq2seq.BasicDecoder(attn_cell,
+            #                                                 predicting_helper,
+            #                                                 attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size),
+            #                                                 output_layer)
+            decoder_initial_state = tf.contrib.seq2seq.tile_batch(attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size), multiplier=10)
+            predicting_decoder = CustomBeamSearchDecoder(cell=attn_cell,
+                                                            embedding=self.g_embeddings,
+                                                            start_tokens=start_tokens,
+                                                            end_token=self.seq_end_token,
+                                                            initial_state=decoder_initial_state,
+                                                            beam_width=10,
+                                                            output_layer=output_layer,
+                                                            length_penalty_weight=0.0)
+
             predicting_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(predicting_decoder,
                                                                 impute_finished=True,
                                                                 maximum_iterations=max_target_sequence_length)
