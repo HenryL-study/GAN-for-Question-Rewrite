@@ -37,71 +37,71 @@ Twitter (2B tweets, 27B tokens, 1.2M vocab, uncased, 25d, 50d, 100d, & 200d vect
 
 |---Generator
 
-|   |
+|	|
 
-|   |---input:
+|	|---input:
 
-|   |       [EMB_DIM, SEQ_LENGTH, BATCH_SIZE] = [200, ?, 64]
+|	|		[EMB_DIM, SEQ_LENGTH, BATCH_SIZE] = [200, ?, 64]
 
-|   |---layer1.1:
+|	|---layer1.1:
 
-|   |       LSTM_FWD: HIDDEN_STATE = 32
+|	|		LSTM_FWD: HIDDEN_STATE = 32
 
-|   |       LSTM_BWD: HIDDEN_STATE = 32
+|	|		LSTM_BWD: HIDDEN_STATE = 32
 
-|   |       Attention: context vector = [CONTEXT, POST_DIM, BATCH_SIZE] = [200 64, 32]
+|	|		Attention: context vector = [CONTEXT, POST_DIM, BATCH_SIZE] = [200 64, 32]
 
-|   |---layer1.2:
+|	|---layer1.2:
 
-​		conv1-8:
+​			conv1-8:
 
-​		filter_sizes = [1, 2, 3, 8, 9, 10, 15, 20]
+​			filter_sizes = [1, 2, 3, 8, 9, 10, 15, 20]
 
-​		num_filters  = [100, 200, 100, 100, 100, 100, 160, 160]
+​			num_filters  = [100, 200, 100, 100, 100, 100, 160, 160]
 
-|   |---layer2:
+|	|---layer2:
 
-|   |       LSTM_POST: HIDDEN_STATE = 64
+|	|		LSTM_POST: HIDDEN_STATE = 64
 
-|   |---layer3:
+|	|---layer3:
 
-|   |       FC_1: HIDDEN_UNITS = target_vocab_size
+|	|		FC_1: HIDDEN_UNITS = target_vocab_size
 
-|   |       Softmax
+|	|		Softmax
 
-|   |       Argmax Sample
+|	|		Argmax Sample
 
-|   |---optimizer:
+|	|---optimizer:
 
-|           tf.train.AdamOptimizer
+|			tf.train.AdamOptimizer
 
 |---Discriminator
 
-|   |
+|	|
 
-|   |---input:
+|	|---input:
 
-|   |       [EMB_DIM, SEQ_LENGTH, BATCH_SIZE] = [300, ?, 32]
+|	|	[EMB_DIM, SEQ_LENGTH, BATCH_SIZE] = [300, ?, 32]
 
-|   |---conv1-12:
+|	|---conv1-12:
 
-|   |       filter_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20]
+|	|	filter_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20]
 
-|   |       num_filters  = [100, 200, 200, 200, 200, 100, 100, 100, 100, 100, 160, 160]
+|	|	num_filters  = [100, 200, 200, 200, 200, 100, 100, 100, 100, 100, 160, 160]
 
-|   |---FC：
+|	|---FC：
 
-|   |       HIDDEN_UNITS = 300
+|	|	HIDDEN_UNITS = 300
 
-|   |       Softmax
+|	|	Softmax
 
-|   |---output:
+|	|---output:
 
-|   |       [BATCH_SIZE, label] = [32, 2]
+|	|	[BATCH_SIZE, label] = [32, 2]
 
-|   |---optimizer:
+|	|---optimizer:
 
-|           tf.train.AdamOptimizer
+|		tf.train.AdamOptimizer
 
 #### Seq2Seq
 
