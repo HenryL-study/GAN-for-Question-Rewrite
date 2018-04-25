@@ -33,8 +33,7 @@ Twitter (2B tweets, 27B tokens, 1.2M vocab, uncased, 25d, 50d, 100d, & 200d vect
 
 #### GAN
 
-|
-
+```
 |---Generator
 
 |	|
@@ -53,11 +52,11 @@ Twitter (2B tweets, 27B tokens, 1.2M vocab, uncased, 25d, 50d, 100d, & 200d vect
 
 |	|---layer1.2:
 
-​			conv1-8:
+			conv1-8:
 
-​			filter_sizes = [1, 2, 3, 8, 9, 10, 15, 20]
+			filter_sizes = [1, 2, 3, 8, 9, 10, 15, 20]
 
-​			num_filters  = [100, 200, 100, 100, 100, 100, 160, 160]
+			num_filters  = [100, 200, 100, 100, 100, 100, 160, 160]
 
 |	|---layer2:
 
@@ -102,6 +101,9 @@ Twitter (2B tweets, 27B tokens, 1.2M vocab, uncased, 25d, 50d, 100d, & 200d vect
 |	|---optimizer:
 
 |		tf.train.AdamOptimizer
+```
+
+
 
 #### Seq2Seq
 
