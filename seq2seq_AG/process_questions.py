@@ -18,7 +18,7 @@ from keras.preprocessing.sequence import pad_sequences
 embedding_size = 200
 glove_embedding_filename = 'data/glove.twitter.27B.200d.txt'
 question_filename = 'data/Computer/Computers&Internet.txt' #'question-simple.txt'
-question_gen_filename = 'data/Computer/Computers&Internet_gen.txt' #'question-simple.txt'
+question_gen_filename = 'data/Computer/generator_sentence17.txt' #'question-simple.txt'
 ans_filename = 'data/Computer/Computers&Internet_ans.txt' #'question-simple.txt'
 
 processed_filename = 'data/Computer/question-vec.txt'
@@ -47,10 +47,14 @@ file.close()
 file = open(question_gen_filename,'r')
 i = 0
 for line in file.readlines():
+    if line.strip() == '':
+        i-=1
+        break
     row = 'starttrats ' + line.strip() + ' enddne'
     row_ = text_to_word_sequence(row)
     MAX_LENGTH = max(MAX_LENGTH, len(row_))
     ques_concat[i] = ques_concat[i] + ' ' + row
+    i+=1
 file.close()
 ans = []
 ANS_MAX_LENGTH = 0
@@ -61,6 +65,10 @@ for line in file.readlines():
     ANS_MAX_LENGTH = max(ANS_MAX_LENGTH, len(row_))
     ans.append(row)
 file.close()
+
+ques = ques[:i]
+ques_concat = ques_concat[:i]
+ans = ans[:i]
 
 embedding_index = {}
 fopen = codecs.open(glove_embedding_filename, 'r', 'utf-8')
