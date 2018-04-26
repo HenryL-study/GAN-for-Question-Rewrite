@@ -23,15 +23,15 @@ from tensorflow.python.util import nest
 
 class CustomBeamSearchDecoder(BeamSearchDecoder):
     def __init__(self,
-               cell,
-               embedding,
-               start_tokens,
-               end_token,
-               initial_state,
-               beam_width,
-               output_layer=None,
-               cnn_context,
-               length_penalty_weight=0.0):
+                cell,
+                embedding,
+                start_tokens,
+                end_token,
+                initial_state,
+                beam_width,
+                cnn_context,
+                output_layer=None,
+                length_penalty_weight=0.0):
         """Initialize BeamSearchDecoder.
         Args:
         cell: An `RNNCell` instance.
