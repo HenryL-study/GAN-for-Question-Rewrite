@@ -101,7 +101,7 @@ data_loader.create_batches(ques_file, ques_len_file, ans_file, ans_len_file)
 print ('Start training...')
 sampel_log = open('save/sample-log.txt', 'w')
 for epoch in range(EPOCH_NUM):
-    loss, test_loss, sample, g_sample = train_epoch(sess, seq2seq_model, gen_data_loader)
+    loss, test_loss, sample, g_sample = train_epoch(sess, seq2seq_model, data_loader)
     print ('train epoch ', epoch, 'train_loss ', loss, 'test_loss ', test_loss)
     if epoch % 5 == 0:
         print(g_sample)

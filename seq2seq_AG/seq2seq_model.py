@@ -114,6 +114,8 @@ class Seq2seq_Model(object):
         bi_state_h = tf.concat((state_fw.h, state_bw.h), -1)
         bi_lstm_state = tf.nn.rnn_cell.LSTMStateTuple(c=bi_state_c, h=bi_state_h)
         self.encoder_state = tuple([bi_lstm_state] * self.layer_size)
+        print("encoder state: ", self.encoder_state)
+        print("encoder output ", self.encoder_out)
 
     def add_attention_for_training(self):
         attention_mechanism = tf.contrib.seq2seq.LuongAttention(
@@ -128,9 +130,9 @@ class Seq2seq_Model(object):
     def add_decoder_for_training(self):
         self.add_attention_for_training()
         train_context = tf.expand_dims(self.cnn_context, 1)
-        train_seq_inputs = tf.concat([decoder_embed_input, tf.tile(train_context, [1,self.max_ques_length,1])], 2)
+        train_seq_inputs = tf.concat([self.processed_response, tf.tile(train_context, [1,self.max_ans_length,1])], 2)
         training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=train_seq_inputs,
-                                                            sequence_length=self.target_sequence_length,
+                                                            sequence_length=self.target_response_length,
                                                             time_major=False)
         training_decoder = tf.contrib.seq2seq.BasicDecoder(self.decoder_cell,
                                                             training_helper,
@@ -139,6 +141,7 @@ class Seq2seq_Model(object):
         training_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(training_decoder,
                                                                     impute_finished=True,
                                                                     maximum_iterations=self.max_ans_length)
+        print("training decoder output: ", training_decoder_output)
         return training_decoder_output
     # end method
 
@@ -162,7 +165,7 @@ class Seq2seq_Model(object):
     def add_decoder_for_inference(self):
         self.add_attention_for_inference()
         start_tokens = tf.tile(tf.constant([self.seq_start_token], dtype=tf.int32), [self.batch_size], 
-                                name='start_token
+                                name='start_tokens')
         predicting_decoder = CustomBeamSearchDecoder(cell=self.decoder_cell,
                                                 embedding=self.g_embeddings,
                                                 start_tokens=start_tokens,
@@ -171,28 +174,28 @@ class Seq2seq_Model(object):
                                                     self.batch_size * self.beam_width, tf.float32).clone(cell_state = self.encoder_state_tiled),
                                                 beam_width=self.beam_width,
                                                 cnn_context = self.cnn_context,
-                                                output_layer=output_layer,
+                                                output_layer=self.output_layer,
                                                 length_penalty_weight=0.0)
 
         predicting_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(predicting_decoder,
-                                                            impute_finished=True,
+                                                            impute_finished=False,
                                                             maximum_iterations=self.max_ans_length)
+        print("predict decoder output: ", predicting_decoder_output)
         return predicting_decoder_output
 
     def generate(self, sess, x, x_len, response, res_len):
+        res_len_max = max(res_len)
         outputs = sess.run(self.g_samples, feed_dict={self.x: x, self.target_sequence_length: x_len, self.response: response, self.target_response_length: res_len, self.max_response_length_per_batch: res_len_max})
         outputs = outputs[:,:,0]
         return outputs
 
     def train_step(self, sess, x, x_len, response, res_len):
-        x_len_max = max(x_len)
-        #print("x_len_max: ", x_len_max)
+        res_len_max = max(res_len)
         outputs = sess.run([self.pretrain_loss, self.pretrain_updates, self.g_pretrain_sample, self.g_samples], feed_dict={self.x: x, self.target_sequence_length: x_len, self.response: response, self.target_response_length: res_len, self.max_response_length_per_batch: res_len_max})
         return outputs
     
     def train_test_step(self, sess, x, x_len, response, res_len):
         res_len_max = max(res_len)
-        #print("x_len_max: ", x_len_max)
         outputs = sess.run(self.pretrain_loss, feed_dict={self.x: x, self.target_sequence_length: x_len, self.response: response, self.target_response_length: res_len, self.max_response_length_per_batch: res_len_max})
         return outputs
 

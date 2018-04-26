@@ -3,8 +3,8 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
-
-from tensorflow.contrib.seq2seq.python.ops.beam_search_decoder import BeamSearchDecoder
+import tensorflow as tf
+from tensorflow.contrib.seq2seq.python.ops.beam_search_decoder import BeamSearchDecoder, _beam_search_step, _get_scores, _length_penalty, _mask_probs, _maybe_tensor_gather_helper, _tensor_gather_helper, tile_batch, _tile_batch
 from tensorflow.contrib.seq2seq.python.ops import beam_search_ops
 from tensorflow.contrib.seq2seq.python.ops import decoder
 from tensorflow.python.framework import dtypes
@@ -83,9 +83,9 @@ class CustomBeamSearchDecoder(BeamSearchDecoder):
             initial_state, self._cell.state_size)
         self._start_tokens = array_ops.tile(
             array_ops.expand_dims(self._start_tokens, 1), [1, self._beam_width]) #[batch_size, beam_width]
-        self._start_inputs = self._embedding_fn(self._start_tokens)       #[batch_size, emb_dim, beam_width]
-        self.cnn_inputs = array_ops.tile(array_ops.expand_dims(cnn_context, 2), [1, 1, self._beam_width])
-        self._start_inputs = tf.concat([self._start_inputs, self.cnn_inputs], 1) #[batch_size, emb_dim*2, beam_width]
+        self._start_inputs = self._embedding_fn(self._start_tokens)       #[batch_size, beam_width, emb_dim]
+        self.cnn_inputs = tf.transpose(array_ops.tile(array_ops.expand_dims(cnn_context, 2), [1, 1, self._beam_width]), perm=[0, 2, 1])
+        self._start_inputs = tf.concat([self._start_inputs, self.cnn_inputs], 2) #[batch_size, beam_width, emb_dim*2]
         print("beam inputs: ",self._start_inputs)
         self._finished = array_ops.zeros(
             [self._batch_size, self._beam_width], dtype=dtypes.bool)
@@ -136,6 +136,6 @@ class CustomBeamSearchDecoder(BeamSearchDecoder):
             sample_ids = beam_search_output.predicted_ids
             next_inputs = control_flow_ops.cond(
                 math_ops.reduce_all(finished), lambda: self._start_inputs,
-                lambda: tf.concat([self._embedding_fn(sample_ids), self.cnn_inputs], 1))
+                lambda: tf.concat([self._embedding_fn(sample_ids), self.cnn_inputs], 2))
 
         return (beam_search_output, beam_search_state, next_inputs, finished)
