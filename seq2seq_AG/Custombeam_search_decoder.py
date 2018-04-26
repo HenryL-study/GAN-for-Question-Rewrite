@@ -106,36 +106,36 @@ class CustomBeamSearchDecoder(BeamSearchDecoder):
         length_penalty_weight = self._length_penalty_weight
 
         with ops.name_scope(name, "BeamSearchDecoderStep", (time, inputs, state)):
-        cell_state = state.cell_state
-        inputs = nest.map_structure(
-            lambda inp: self._merge_batch_beams(inp, s=inp.shape[2:]), inputs)
-        cell_state = nest.map_structure(
-            self._maybe_merge_batch_beams,
-            cell_state, self._cell.state_size)
-        cell_outputs, next_cell_state = self._cell(inputs, cell_state)
-        cell_outputs = nest.map_structure(
-            lambda out: self._split_batch_beams(out, out.shape[1:]), cell_outputs)
-        next_cell_state = nest.map_structure(
-            self._maybe_split_batch_beams,
-            next_cell_state, self._cell.state_size)
+            cell_state = state.cell_state
+            inputs = nest.map_structure(
+                lambda inp: self._merge_batch_beams(inp, s=inp.shape[2:]), inputs)
+            cell_state = nest.map_structure(
+                self._maybe_merge_batch_beams,
+                cell_state, self._cell.state_size)
+            cell_outputs, next_cell_state = self._cell(inputs, cell_state)
+            cell_outputs = nest.map_structure(
+                lambda out: self._split_batch_beams(out, out.shape[1:]), cell_outputs)
+            next_cell_state = nest.map_structure(
+                self._maybe_split_batch_beams,
+                next_cell_state, self._cell.state_size)
 
-        if self._output_layer is not None:
-            cell_outputs = self._output_layer(cell_outputs)
+            if self._output_layer is not None:
+                cell_outputs = self._output_layer(cell_outputs)
 
-        beam_search_output, beam_search_state = _beam_search_step(
-            time=time,
-            logits=cell_outputs,
-            next_cell_state=next_cell_state,
-            beam_state=state,
-            batch_size=batch_size,
-            beam_width=beam_width,
-            end_token=end_token,
-            length_penalty_weight=length_penalty_weight)
+            beam_search_output, beam_search_state = _beam_search_step(
+                time=time,
+                logits=cell_outputs,
+                next_cell_state=next_cell_state,
+                beam_state=state,
+                batch_size=batch_size,
+                beam_width=beam_width,
+                end_token=end_token,
+                length_penalty_weight=length_penalty_weight)
 
-        finished = beam_search_state.finished
-        sample_ids = beam_search_output.predicted_ids
-        next_inputs = control_flow_ops.cond(
-            math_ops.reduce_all(finished), lambda: self._start_inputs,
-            lambda: tf.concat([self._embedding_fn(sample_ids), self.cnn_inputs], 1))
+            finished = beam_search_state.finished
+            sample_ids = beam_search_output.predicted_ids
+            next_inputs = control_flow_ops.cond(
+                math_ops.reduce_all(finished), lambda: self._start_inputs,
+                lambda: tf.concat([self._embedding_fn(sample_ids), self.cnn_inputs], 1))
 
         return (beam_search_output, beam_search_state, next_inputs, finished)
