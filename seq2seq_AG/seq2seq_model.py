@@ -281,7 +281,7 @@ class Seq2seq_Model(object):
                                                             end_token=self.seq_end_token,
                                                             initial_state=decoder_initial_state,
                                                             beam_width=10,
-                                                            cnn_context,
+                                                            cnn_context = cnn_context,
                                                             output_layer=output_layer,
                                                             length_penalty_weight=0.0)
 
