@@ -214,19 +214,20 @@ class Seq2seq_Model(object):
         # decoder_embeddings = tf.Variable(tf.random_uniform([target_vocab_size, decoding_embedding_size]))
         decoder_embed_input = tf.nn.embedding_lookup(self.g_embeddings, decoder_input)
 
-        # 2. 构造Decoder中的RNN单元
-        def get_decoder_cell(rnn_size):
-            decoder_cell = tf.contrib.rnn.LSTMCell(rnn_size, initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
-            return decoder_cell
-        cell = tf.contrib.rnn.MultiRNNCell([get_decoder_cell(rnn_size) for _ in range(num_layers)])
-        #Attention
-        #encoder_output = tf.transpose(encoder_output, perm=[1, 0, 2]) #time * batch * outputsize
-        memory = encoder_output
-        attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(
-            num_units=self.atten_depth, memory=memory,
-            memory_sequence_length=target_sequence_length)
-        attn_cell = tf.contrib.seq2seq.AttentionWrapper(
-            cell, attention_mechanism, attention_layer_size=(self.atten_depth + rnn_size))
+        def get_attn(rnn_size, num_layers, encoder_output, target_sequence_length, reuse = False):
+            # 2. 构造Decoder中的RNN单元
+            def get_decoder_cell(rnn_size):
+                decoder_cell = tf.contrib.rnn.LSTMCell(rnn_size, initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+                return decoder_cell
+            cell = tf.contrib.rnn.MultiRNNCell([get_decoder_cell(rnn_size) for _ in range(num_layers)])
+            #Attention
+            #encoder_output = tf.transpose(encoder_output, perm=[1, 0, 2]) #time * batch * outputsize
+            memory = encoder_output
+            attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(
+                num_units=self.atten_depth, memory=memory,
+                memory_sequence_length=target_sequence_length)
+            attn_cell = tf.contrib.seq2seq.AttentionWrapper(
+                cell, attention_mechanism, attention_layer_size=(self.atten_depth + rnn_size))
         
         # 3. Output全连接层
         output_layer = Dense(target_vocab_size,
@@ -245,6 +246,7 @@ class Seq2seq_Model(object):
                                                                 sequence_length=target_sequence_length,
                                                                 time_major=False)
             # 构造decoder
+            attn_cell = get_attn(rnn_size, num_layers, encoder_output, target_sequence_length)
             training_decoder = tf.contrib.seq2seq.BasicDecoder(attn_cell,
                                                             training_helper,
                                                             attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size).clone(cell_state=encoder_state),
@@ -266,6 +268,7 @@ class Seq2seq_Model(object):
             #                                                 predicting_helper,
             #                                                 attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size),
             #                                                 output_layer)
+            attn_cell = get_attn(rnn_size, num_layers, encoder_output, target_sequence_length, reuse=True)
             encoder_state_ = tf.contrib.seq2seq.tile_batch(encoder_state, multiplier=10)
             decoder_initial_state = attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size * 10).clone(cell_state=encoder_state_)
             predicting_decoder = CustomBeamSearchDecoder(cell=attn_cell,
