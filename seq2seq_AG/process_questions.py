@@ -18,7 +18,7 @@ from keras.preprocessing.sequence import pad_sequences
 embedding_size = 200
 glove_embedding_filename = 'data/glove.twitter.27B.200d.txt'
 question_filename = 'data/Computer/Computers&Internet.txt' #'question-simple.txt'
-question_concat_filename = 'data/Computer/Computers&Internet_concat.txt' #'question-simple.txt'
+question_gen_filename = 'data/Computer/Computers&Internet_gen.txt' #'question-simple.txt'
 ans_filename = 'data/Computer/Computers&Internet_ans.txt' #'question-simple.txt'
 
 processed_filename = 'data/Computer/question-vec.txt'
@@ -32,21 +32,25 @@ index_to_word = 'data/Computer/index_to_word.txt'
 
 
 ques = []
+ques_concat = []
 MAX_LENGTH = 0
 file = open(question_filename,'r')
 for line in file.readlines():
     row = 'starttrats ' + line.strip() + ' enddne'
+    row_c = 'starttrats ' + line.strip()
+    ques.append(row)
+    ques_concat.append(row_c)
     row_ = text_to_word_sequence(row)
     MAX_LENGTH = max(MAX_LENGTH, len(row_))
-    ques.append(row)
 file.close()
-ques_concat = []
-file = open(question_filename,'r')
+
+file = open(question_gen_filename,'r')
+i = 0
 for line in file.readlines():
     row = 'starttrats ' + line.strip() + ' enddne'
     row_ = text_to_word_sequence(row)
     MAX_LENGTH = max(MAX_LENGTH, len(row_))
-    ques_concat.append(row)
+    ques_concat[i] = ques_concat[i] + ' ' + row
 file.close()
 ans = []
 ANS_MAX_LENGTH = 0
