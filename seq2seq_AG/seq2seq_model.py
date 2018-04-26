@@ -266,7 +266,8 @@ class Seq2seq_Model(object):
             #                                                 predicting_helper,
             #                                                 attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size),
             #                                                 output_layer)
-            decoder_initial_state = tf.contrib.seq2seq.tile_batch(attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size).clone(cell_state=encoder_state),  multiplier=10)
+            encoder_state_ = tf.contrib.seq2seq.tile_batch(encoder_state, multiplier=10)
+            decoder_initial_state = attn_cell.zero_state(dtype=tf.float32, batch_size=self.batch_size * 10).clone(cell_state=encoder_state_)
             predicting_decoder = CustomBeamSearchDecoder(cell=attn_cell,
                                                             embedding=self.g_embeddings,
                                                             start_tokens=start_tokens,
