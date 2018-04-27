@@ -32,7 +32,7 @@ class Data_loader():
                 line = line.strip()
                 line = line.split()
                 parse_line = [int(x) for x in line]
-                if len(parse_line) == self.MAX_Q_LEN:
+                if len(parse_line) == self.MAX_ANS_LEN:
                     self.ans_token_stream.append(parse_line)
         with open(ans_len_file, 'r') as f:
             for line in f:
@@ -55,6 +55,8 @@ class Data_loader():
         self.ans_batch = np.split(np.array(self.ans_token_stream), self.total_batch, 0)
         self.ans_len_batch = np.split(np.array(self.ans_num_stream), self.total_batch)
 
+        print("question batch: ", len(self.sequence_batch), self.sequence_batch[0].shape)
+        print("ans batch: ", len(self.ans_batch), self.ans_batch[0].shape)
         self.pointer = 0
         self.test_pointer = 0
 
@@ -79,4 +81,3 @@ class Data_loader():
     def reset_pointer(self):
         self.pointer = 0
         self.test_pointer = 0
-
