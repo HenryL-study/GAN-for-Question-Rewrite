@@ -20,7 +20,7 @@ BATCH_SIZE = 64
 gen_filter_sizes = [1, 2, 3, 9, 10, 15, 20]
 gen_num_filters = [100, 200, 200, 100, 100, 160, 160]
 
-TOTAL_BATCH = 1000 #TODO
+TOTAL_BATCH = 15 #TODO
 SEED = 88
 
 src_vocab_size = None
@@ -43,11 +43,12 @@ def train_epoch(sess, trainable_model, data_loader):
         ques_batch, ques_len, ans_batch, ans_len = data_loader.next_batch()
         g_loss, _, t_sample, g_sample = trainable_model.train_step(sess, ques_batch, ques_len, ans_batch, ans_len)
         # print("sample shape: ", sample[0])
+        print('loss sample in batch ', it, ' : ', g_loss)
         supervised_g_losses.append(g_loss)
 
     for it in range(data_loader.num_test_batch):
-        batch, ques_len = data_loader.next_test_batch()
-        g_test_loss= trainable_model.pretrain_test_step(sess, batch, ques_len)
+        ques_batch, ques_len, ans_batch, ans_len = data_loader.next_test_batch()
+        g_test_loss= trainable_model.train_test_step(sess, ques_batch, ques_len, ans_batch, ans_len)
         # print("sample shape: ", sample[0])
         supervised_g_test_losses.append(g_test_loss)
 
@@ -90,7 +91,7 @@ data_loader = Data_loader(BATCH_SIZE, SEQ_LENGTH, ANS_LENGTH)
 seq2seq_model = Seq2seq_Model(src_vocab_size, BATCH_SIZE, embedding_size, HIDDEN_DIM, embedding, SEQ_LENGTH, ANS_LENGTH, START_TOKEN, gen_filter_sizes, gen_num_filters)
 
 config = tf.ConfigProto()
-config.gpu_options.per_process_gpu_memory_fraction = 0.9  #allow_growth = False #True
+# config.gpu_options.per_process_gpu_memory_fraction = 0.9  #allow_growth = False #True
 config.allow_soft_placement = True
 sess = tf.Session(config = config)
 sess.run(tf.global_variables_initializer())
@@ -102,8 +103,8 @@ print ('Start training...')
 sampel_log = open('save/sample-log.txt', 'w')
 for epoch in range(EPOCH_NUM):
     loss, test_loss, sample, g_sample = train_epoch(sess, seq2seq_model, data_loader)
-    print ('train epoch ', epoch, 'train_loss ', loss, 'test_loss ', test_loss)
-    if epoch % 5 == 0:
+    print ('\t\t\t\ttrain epoch ', epoch, 'train_loss ', loss, 'test_loss ', test_loss)
+    if epoch % 1 == 0:
         print(g_sample)
         get_gen_ans(seq2seq_model, data_loader, gen_ans_file, epoch)
 

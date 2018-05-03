@@ -60,7 +60,7 @@ ans = []
 ANS_MAX_LENGTH = 0
 file = open(ans_filename,'r')
 for line in file.readlines():
-    row = 'starttrats ' + line.strip() + ' enddne'
+    row = 'starttrats ' + line.strip().split('.')[0] + ' enddne'
     row_ = text_to_word_sequence(row)
     ANS_MAX_LENGTH = max(ANS_MAX_LENGTH, len(row_))
     ans.append(row)
@@ -135,33 +135,33 @@ print("ques_len_static:\n", ques_len_static)
 ans_len = codecs.open(processed_ans_len,'w', 'utf-8')
 ans_len_static = [0,0,0,0,0,0,0]
 for seq in ans_train:
-    if len(seq) < 50: 
+    if len(seq) < 5: 
         ans_len_static[0] += 1
         ans_len.write(str(len(seq)))
         ans_len.write(" ")
-    elif len(seq) < 100:
+    elif len(seq) < 10:
         ans_len_static[1] += 1
         ans_len.write(str(len(seq)))
         ans_len.write(" ")
-    elif len(seq) < 200:
+    elif len(seq) < 15:
         ans_len_static[2] += 1
         ans_len.write(str(len(seq)))
         ans_len.write(" ")
-    elif len(seq) < 300:
+    elif len(seq) < 20:
         ans_len_static[3] += 1
-        ans_len.write("200")
+        ans_len.write(str(len(seq)))
         ans_len.write(" ")
-    elif len(seq) < 400:
+    elif len(seq) < 25:
         ans_len_static[4] += 1
-        ans_len.write("200")
+        ans_len.write("20")
         ans_len.write(" ")
-    elif len(seq) < 500:
+    elif len(seq) < 30:
         ans_len_static[5] += 1
-        ans_len.write("200")
+        ans_len.write("20")
         ans_len.write(" ")
     else:
         ans_len_static[6] += 1
-        ans_len.write("200")
+        ans_len.write("20")
         ans_len.write(" ")
 ans_len.close()
 print("ans_len_static:\n", ans_len_static)
@@ -177,19 +177,19 @@ for seq in concat_train:
         cat_len_static[1] += 1
         cat_len.write(str(len(seq)))
         cat_len.write(" ")
-    elif len(seq) < 200:
+    elif len(seq) < 150:
         cat_len_static[2] += 1
         cat_len.write(str(len(seq)))
         cat_len.write(" ")
-    elif len(seq) < 300:
+    elif len(seq) < 200:
         cat_len_static[3] += 1
-        cat_len.write("200")
+        cat_len.write(str(len(seq)))
         cat_len.write(" ")
-    elif len(seq) < 400:
+    elif len(seq) < 300:
         cat_len_static[4] += 1
         cat_len.write("200")
         cat_len.write(" ")
-    elif len(seq) < 500:
+    elif len(seq) < 400:
         cat_len_static[5] += 1
         cat_len.write("200")
         cat_len.write(" ")
@@ -206,7 +206,7 @@ print("cat_len_static:\n", cat_len_static)
 # remove MAX_LENGTH setting below to use the max length of all sentences.
 MAX_LENGTH = 100
 data_train = pad_sequences(sequences_train, maxlen = MAX_LENGTH, padding='post', truncating='post')
-ANS_MAX_LENGTH = 200
+ANS_MAX_LENGTH = 20
 ans_train = pad_sequences(ans_train, maxlen = ANS_MAX_LENGTH, padding='post', truncating='post')
 CAT_MAX_LENGTH = 200
 cat_train = pad_sequences(concat_train, maxlen = CAT_MAX_LENGTH, padding='post', truncating='post')
@@ -214,7 +214,12 @@ cat_train = pad_sequences(concat_train, maxlen = CAT_MAX_LENGTH, padding='post',
 
 word_index = tokenizer.word_index
 print('Found %s unique tokens.' % len(word_index))
+print('Start token: ', word_index['starttrats'])
+print('End token: ', word_index['enddne'])
 
+for ans in ans_train:
+    if ans[ANS_MAX_LENGTH-1] != word_index['enddne'] or ans[ANS_MAX_LENGTH-1] != 0:
+        ans[ANS_MAX_LENGTH-1] = word_index['enddne']
 # Prepare embedding matrix
 num_words = len(word_index)+1
 embedding_matrix = np.zeros((num_words, embedding_size))

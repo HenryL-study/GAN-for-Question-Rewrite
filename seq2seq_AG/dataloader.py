@@ -40,7 +40,7 @@ class Data_loader():
                 line = line.split()
                 self.ans_num_stream = [int(x) for x in line]
 
-        self.num_batch = int(len(self.token_stream) / self.batch_size)
+        self.num_batch = int(7999 / self.batch_size)
         self.num_test_batch = int(self.num_batch * 0.2)
         self.total_batch = self.num_batch
         self.num_batch -= self.num_test_batch
