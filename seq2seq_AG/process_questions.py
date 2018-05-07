@@ -18,7 +18,7 @@ from keras.preprocessing.sequence import pad_sequences
 embedding_size = 200
 glove_embedding_filename = 'data/glove.twitter.27B.200d.txt'
 question_filename = 'data/Computer/Computers&Internet.txt' #'question-simple.txt'
-question_gen_filename = 'data/Computer/generator_sentence17.txt' #'question-simple.txt'
+question_gen_filename = 'data/Computer/processed_concat.txt' #'question-simple.txt'
 ans_filename = 'data/Computer/Computers&Internet_ans.txt' #'question-simple.txt'
 
 processed_filename = 'data/Computer/question-vec.txt'
@@ -60,7 +60,11 @@ ans = []
 ANS_MAX_LENGTH = 0
 file = open(ans_filename,'r')
 for line in file.readlines():
-    row = 'starttrats ' + line.strip().split('.')[0] + ' enddne'
+    words = line.strip().split('.')
+    if len(words[0].split()) < 2 and len(words) > 1:
+        row = 'starttrats ' + words[0] + words[1] + ' enddne'
+    else:
+        row = 'starttrats ' + words[0] + ' enddne'
     row_ = text_to_word_sequence(row)
     ANS_MAX_LENGTH = max(ANS_MAX_LENGTH, len(row_))
     ans.append(row)
@@ -107,27 +111,27 @@ for seq in sequences_train:
         ques_len.write(" ")
     elif len(seq) < 100:
         ques_len_static[1] += 1
-        ques_len.write(str(len(seq)))
+        ques_len.write("50")
         ques_len.write(" ")
     elif len(seq) < 200:
         ques_len_static[2] += 1
-        ques_len.write("100")
+        ques_len.write("50")
         ques_len.write(" ")
     elif len(seq) < 300:
         ques_len_static[3] += 1
-        ques_len.write("100")
+        ques_len.write("50")
         ques_len.write(" ")
     elif len(seq) < 400:
         ques_len_static[4] += 1
-        ques_len.write("100")
+        ques_len.write("50")
         ques_len.write(" ")
     elif len(seq) < 500:
         ques_len_static[5] += 1
-        ques_len.write("100")
+        ques_len.write("50")
         ques_len.write(" ")
     else:
         ques_len_static[6] += 1
-        ques_len.write("100")
+        ques_len.write("50")
         ques_len.write(" ")
 ques_len.close()
 print("ques_len_static:\n", ques_len_static)
@@ -179,23 +183,23 @@ for seq in concat_train:
         cat_len.write(" ")
     elif len(seq) < 150:
         cat_len_static[2] += 1
-        cat_len.write(str(len(seq)))
+        cat_len.write("100")
         cat_len.write(" ")
     elif len(seq) < 200:
         cat_len_static[3] += 1
-        cat_len.write(str(len(seq)))
+        cat_len.write("100")
         cat_len.write(" ")
     elif len(seq) < 300:
         cat_len_static[4] += 1
-        cat_len.write("200")
+        cat_len.write("100")
         cat_len.write(" ")
     elif len(seq) < 400:
         cat_len_static[5] += 1
-        cat_len.write("200")
+        cat_len.write("100")
         cat_len.write(" ")
     else:
         cat_len_static[6] += 1
-        cat_len.write("200")
+        cat_len.write("100")
         cat_len.write(" ")
 cat_len.close()
 print("cat_len_static:\n", cat_len_static)
@@ -204,11 +208,11 @@ print("cat_len_static:\n", cat_len_static)
 #print(sequences_train[0])
 # # Auto filled with 0
 # remove MAX_LENGTH setting below to use the max length of all sentences.
-MAX_LENGTH = 100
+MAX_LENGTH = 50
 data_train = pad_sequences(sequences_train, maxlen = MAX_LENGTH, padding='post', truncating='post')
 ANS_MAX_LENGTH = 20
 ans_train = pad_sequences(ans_train, maxlen = ANS_MAX_LENGTH, padding='post', truncating='post')
-CAT_MAX_LENGTH = 200
+CAT_MAX_LENGTH = 100
 cat_train = pad_sequences(concat_train, maxlen = CAT_MAX_LENGTH, padding='post', truncating='post')
 
 
@@ -218,7 +222,7 @@ print('Start token: ', word_index['starttrats'])
 print('End token: ', word_index['enddne'])
 
 for ans in ans_train:
-    if ans[ANS_MAX_LENGTH-1] != word_index['enddne'] or ans[ANS_MAX_LENGTH-1] != 0:
+    if ans[ANS_MAX_LENGTH-1] != word_index['enddne'] and ans[ANS_MAX_LENGTH-1] != 0:
         ans[ANS_MAX_LENGTH-1] = word_index['enddne']
 # Prepare embedding matrix
 num_words = len(word_index)+1
@@ -243,7 +247,7 @@ np.savetxt(processed_ansname, ans_train, fmt="%d", delimiter=' ')
 np.savetxt(processed_catname, cat_train, fmt="%d", delimiter=' ')
 
 print("Processing done.")
-print("Max length of Q\tA\tQ_C: ", MAX_LENGTH, ANS_MAX_LENGTH, CAT_MAX_LENGTH)
+print("Max length of \tQ\tA\tQ_C: ", MAX_LENGTH, ANS_MAX_LENGTH, CAT_MAX_LENGTH)
 print("Embedding shape: ", embedding_matrix.shape)
 print("Data shape: ", data_train.shape, ans_train.shape, cat_train.shape)
 
