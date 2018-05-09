@@ -16,6 +16,7 @@ tensorflow >= 1.2
 1. run `process_questions.py` to processing questions & answers.
 2. run `run.sh` for training GAN. All GAN parameters are in `GAN_model.py`
 3. run `seq2seq_AG/model.py` to train seq2seq model
+4. results and network details can be found in `structure ans results.pdf`
 
 ### Data Set
 
