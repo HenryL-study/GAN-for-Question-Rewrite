@@ -8,25 +8,24 @@ from Custombeam_search_decoder import CustomBeamSearchDecoder
 
 class Seq2seq_Model(object):
 
-    def __init__(self, num_emb, batch_size, emb_dim, encoder_num_units, emb_data,
-                 ques_length, ans_length, start_token, gen_filter_sizes, gen_num_filters,
-                 learning_rate=0.01, reward_gamma=0.95):
+    def __init__(self, num_emb, batch_size, emb_dim, emb_data,
+                 ques_length, ans_length, start_token, end_token, gen_filter_sizes, gen_num_filters,
+                 isTrain = False, usepre_emb = False, learning_rate=0.0005):
         self.num_emb = num_emb
         self.batch_size = batch_size
         self.emb_dim = emb_dim
         self.emb_data = emb_data
-        self.encoder_num_units = encoder_num_units
         self.max_ques_length = ques_length
         self.max_ans_length = ans_length
-        self.start_token = tf.constant([start_token] * self.batch_size, dtype=tf.int32)
         self.learning_rate = tf.Variable(float(learning_rate), trainable=False)
-        self.reward_gamma = reward_gamma
         self.gen_filter_sizes = gen_filter_sizes
         self.gen_num_filters = gen_num_filters
+        self.isTrain = isTrain
+        self.usepre_emb = usepre_emb
         self.grad_clip = 5.0
 
-        self.seq_start_token = None
-        self.seq_end_token = None
+        self.seq_start_token = start_token
+        self.seq_end_token = end_token
         self.rnn_size = 50
         self.layer_size = 2
         self.beam_width = 10
@@ -50,49 +49,33 @@ class Seq2seq_Model(object):
         self.add_encoder_layer()
         self.getCnnEncoder(self.gen_filter_sizes, self.gen_num_filters)
         self.output_layer = Dense(self.num_emb, kernel_initializer = tf.truncated_normal_initializer(mean = 0.0, stddev=0.1))
-        with tf.variable_scope('decode'):
-            training_decoder_output = self.add_decoder_for_training()
-        with tf.variable_scope('decode', reuse=True):
-            predicting_decoder_output = self.add_decoder_for_inference()
-        
-        # encoder_output, encoder_state = self.get_encoder_layer(self.processed_x, self.encode_rnn_size, self.encode_layer_size, self.target_sequence_length) #sourse seqlenth
+        if self.isTrain:
+            with tf.variable_scope('decode'):
+                training_decoder_output = self.add_decoder_for_training()
+            self.g_pretrain_predictions = training_decoder_output.rnn_output
+            print("self.g_pretrain_predictions: ", self.g_pretrain_predictions)
+            masks = tf.sequence_mask(self.target_sequence_length, self.max_response_length_per_batch, dtype=tf.float32, name='masks')
+            self.train_loss = tf.contrib.seq2seq.sequence_loss(
+                self.g_pretrain_predictions,
+                self.response[:,0:self.max_response_length_per_batch],
+                masks)
 
-        # training_decoder_output, predicting_decoder_output = self.decoding_layer(
-        #     self.decode_layer_size, 
-        #     self.decode_rnn_size,
-        #     self.target_response_length,
-        #     self.max_ans_length,
-        #     encoder_state,
-        #     encoder_output, 
-        #     self.x)
-        
-        #######################################################################################################
-        #  Training
-        #######################################################################################################
-        self.g_pretrain_predictions = training_decoder_output.rnn_output
-        self.g_pretrain_sample = training_decoder_output.sample_id
-        print("self.g_pretrain_predictions: ", self.g_pretrain_predictions)
-        masks = tf.sequence_mask(self.target_sequence_length, self.max_response_length_per_batch, dtype=tf.float32, name='masks')
-        self.pretrain_loss = tf.contrib.seq2seq.sequence_loss(
-            self.g_pretrain_predictions,
-            self.response[:,0:self.max_response_length_per_batch],
-            masks)
-        # training updates
-        pretrain_opt = self.g_optimizer(self.learning_rate)
-
-        pre_gradients = pretrain_opt.compute_gradients(self.pretrain_loss)
-        self.pretrain_grad_zip = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in pre_gradients if grad is not None]
-        self.pretrain_updates = pretrain_opt.apply_gradients(self.pretrain_grad_zip)
-
-        self.g_samples = predicting_decoder_output.predicted_ids
+            # training updates
+            train_opt = self.g_optimizer(self.learning_rate)
+            gradients = train_opt.compute_gradients(self.train_loss)
+            self.pretrain_grad_zip = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in gradients if grad is not None]
+            self.pretrain_updates = train_opt.apply_gradients(self.pretrain_grad_zip)
+        else:
+            with tf.variable_scope('decode'):
+                predicting_decoder_output = self.add_decoder_for_inference()
+            self.g_samples = predicting_decoder_output.predicted_ids
 
 
     def init_matrix(self, shape):
-        #TODO decide start & end
-        self.seq_start_token = 4
-        self.seq_end_token = 7
-
-        embeddings = tf.get_variable("embeddings", shape=self.emb_data.shape, initializer=tf.constant_initializer(self.emb_data), trainable=True)
+        if self.usepre_emb:
+            embeddings = tf.get_variable("embeddings", shape=self.emb_data.shape, initializer=tf.constant_initializer(self.emb_data), trainable=True)
+        else:
+            embeddings = tf.truncated_normal(shape, stddev=0.01)
         return embeddings
 
     def lstm_cell(self, rnn_size=None, reuse=False):
@@ -100,11 +83,12 @@ class Seq2seq_Model(object):
         return tf.nn.rnn_cell.LSTMCell(rnn_size, initializer=tf.orthogonal_initializer(), reuse=reuse)
 
     def add_encoder_layer(self):
+        self.encoder_out = self.processed_x
         for n in range(self.layer_size):
             (out_fw, out_bw), (state_fw, state_bw) = tf.nn.bidirectional_dynamic_rnn(
                 cell_fw = self.lstm_cell(self.rnn_size // 2),
                 cell_bw = self.lstm_cell(self.rnn_size // 2),
-                inputs = self.processed_x,
+                inputs = self.encoder_out,
                 sequence_length = self.target_sequence_length,
                 dtype = tf.float32,
                 scope = 'bidirectional_rnn_'+str(n))
@@ -156,7 +140,7 @@ class Seq2seq_Model(object):
             memory = self.encoder_out_tiled,
             memory_sequence_length = self.X_seq_len_tiled)
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-            cell = tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell(reuse=True) for _ in range(self.layer_size)]),
+            cell = tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell() for _ in range(self.layer_size)]),
             attention_mechanism = attention_mechanism,
             attention_layer_size = self.rnn_size)
     # end method
@@ -184,6 +168,9 @@ class Seq2seq_Model(object):
         return predicting_decoder_output
 
     def generate(self, sess, x, x_len, response, res_len):
+        if self.isTrain:
+            print("Training model. Can not generate.")
+            return None
         res_len_max = max(res_len)
         outputs = sess.run(self.g_samples, feed_dict={self.x: x, self.target_sequence_length: x_len, self.response: response, self.target_response_length: res_len, self.max_response_length_per_batch: res_len_max})
         outputs = outputs[:,:,0]
@@ -191,12 +178,12 @@ class Seq2seq_Model(object):
 
     def train_step(self, sess, x, x_len, response, res_len):
         res_len_max = max(res_len)
-        outputs = sess.run([self.pretrain_loss, self.pretrain_updates, self.g_pretrain_sample, self.g_samples], feed_dict={self.x: x, self.target_sequence_length: x_len, self.response: response, self.target_response_length: res_len, self.max_response_length_per_batch: res_len_max})
+        outputs = sess.run([self.train_loss, self.pretrain_updates], feed_dict={self.x: x, self.target_sequence_length: x_len, self.response: response, self.target_response_length: res_len, self.max_response_length_per_batch: res_len_max})
         return outputs
     
     def train_test_step(self, sess, x, x_len, response, res_len):
         res_len_max = max(res_len)
-        outputs = sess.run(self.pretrain_loss, feed_dict={self.x: x, self.target_sequence_length: x_len, self.response: response, self.target_response_length: res_len, self.max_response_length_per_batch: res_len_max})
+        outputs = sess.run(self.train_loss, feed_dict={self.x: x, self.target_sequence_length: x_len, self.response: response, self.target_response_length: res_len, self.max_response_length_per_batch: res_len_max})
         return outputs
 
     def g_optimizer(self, *args, **kwargs):
