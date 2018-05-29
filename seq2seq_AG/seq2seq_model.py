@@ -26,10 +26,10 @@ class Seq2seq_Model(object):
 
         self.seq_start_token = start_token
         self.seq_end_token = end_token
-        self.rnn_size = 50
+        self.rnn_size = 1024
         self.layer_size = 2
         self.beam_width = 10
-        self.atten_depth = 50 #The depth of the query mechanism
+        self.atten_depth = 512 #The depth of the query mechanism
 
         self.g_embeddings = tf.Variable(self.init_matrix([self.num_emb, self.emb_dim]))
         
@@ -50,25 +50,23 @@ class Seq2seq_Model(object):
         self.getCnnEncoder(self.gen_filter_sizes, self.gen_num_filters)
         self.output_layer = Dense(self.num_emb, kernel_initializer = tf.truncated_normal_initializer(mean = 0.0, stddev=0.1))
         if self.isTrain:
-            with tf.variable_scope('decode'):
-                training_decoder_output = self.add_decoder_for_training()
-            self.g_pretrain_predictions = training_decoder_output.rnn_output
-            print("self.g_pretrain_predictions: ", self.g_pretrain_predictions)
+            decoder_output = self.add_decoder_for_training()
+            self.g_pretrain_predictions = decoder_output.rnn_output
+            self.g_samples = decoder_output.sample_id
+
             masks = tf.sequence_mask(self.target_sequence_length, self.max_response_length_per_batch, dtype=tf.float32, name='masks')
             self.train_loss = tf.contrib.seq2seq.sequence_loss(
                 self.g_pretrain_predictions,
                 self.response[:,0:self.max_response_length_per_batch],
                 masks)
-
-            # training updates
             train_opt = self.g_optimizer(self.learning_rate)
             gradients = train_opt.compute_gradients(self.train_loss)
             self.pretrain_grad_zip = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in gradients if grad is not None]
             self.pretrain_updates = train_opt.apply_gradients(self.pretrain_grad_zip)
+
         else:
-            with tf.variable_scope('decode'):
-                predicting_decoder_output = self.add_decoder_for_inference()
-            self.g_samples = predicting_decoder_output.predicted_ids
+            decoder_output = self.add_decoder_for_inference()
+            self.g_samples = decoder_output.predicted_ids
 
 
     def init_matrix(self, shape):
@@ -78,9 +76,9 @@ class Seq2seq_Model(object):
             embeddings = tf.truncated_normal(shape, stddev=0.01)
         return embeddings
 
-    def lstm_cell(self, rnn_size=None, reuse=False):
+    def lstm_cell(self, rnn_size=None):
         rnn_size = self.rnn_size if rnn_size is None else rnn_size
-        return tf.nn.rnn_cell.LSTMCell(rnn_size, initializer=tf.orthogonal_initializer(), reuse=reuse)
+        return tf.nn.rnn_cell.LSTMCell(rnn_size, initializer=tf.orthogonal_initializer())
 
     def add_encoder_layer(self):
         self.encoder_out = self.processed_x
@@ -101,61 +99,56 @@ class Seq2seq_Model(object):
         print("encoder state: ", self.encoder_state)
         print("encoder output ", self.encoder_out)
 
-    def add_attention_for_training(self):
+    def add_attention(self):
+        if self.isTrain:
+            memory = self.encoder_out
+            encoder_final_state = self.encoder_state
+            memory_sequence_length = self.target_sequence_length
+        else:      
+            memory = tf.contrib.seq2seq.tile_batch(self.encoder_out, self.beam_width)
+            encoder_final_state = tf.contrib.seq2seq.tile_batch(self.encoder_state, self.beam_width)
+            memory_sequence_length = tf.contrib.seq2seq.tile_batch(self.target_sequence_length, self.beam_width)
+        
         attention_mechanism = tf.contrib.seq2seq.LuongAttention(
             num_units = self.rnn_size, 
-            memory = self.encoder_out,
-            memory_sequence_length = self.target_sequence_length)
-        self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
+            memory = memory,
+            memory_sequence_length = memory_sequence_length)
+        decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
             cell = tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell() for _ in range(self.layer_size)]),
             attention_mechanism = attention_mechanism,
-            attention_layer_size = self.rnn_size)
+            attention_layer_size = self.atten_depth)
+        decoder_initial_state = decoder_cell.zero_state(self.batch_size, tf.float32).clone(cell_state=encoder_final_state)
+        
+        return decoder_cell, decoder_initial_state
+        
+
 
     def add_decoder_for_training(self):
-        self.add_attention_for_training()
+        cell, initial_state = self.add_attention()
         train_context = tf.expand_dims(self.cnn_context, 1)
         train_seq_inputs = tf.concat([self.processed_response, tf.tile(train_context, [1,self.max_ans_length,1])], 2)
         training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=train_seq_inputs,
                                                             sequence_length=self.target_response_length,
                                                             time_major=False)
-        training_decoder = tf.contrib.seq2seq.BasicDecoder(self.decoder_cell,
+        training_decoder = tf.contrib.seq2seq.BasicDecoder(cell,
                                                             training_helper,
-                                                            self.decoder_cell.zero_state(self.batch_size, tf.float32).clone(cell_state=self.encoder_state),
+                                                            initial_state,
                                                             self.output_layer) 
         training_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(training_decoder,
                                                                     impute_finished=True,
                                                                     maximum_iterations=self.max_ans_length)
         print("training decoder output: ", training_decoder_output)
         return training_decoder_output
-    # end method
-
-
-    def add_attention_for_inference(self):
-        self.encoder_out_tiled = tf.contrib.seq2seq.tile_batch(self.encoder_out, self.beam_width)
-        self.encoder_state_tiled = tf.contrib.seq2seq.tile_batch(self.encoder_state, self.beam_width)
-        self.X_seq_len_tiled = tf.contrib.seq2seq.tile_batch(self.target_sequence_length, self.beam_width)
-
-        attention_mechanism = tf.contrib.seq2seq.LuongAttention(
-            num_units = self.rnn_size, 
-            memory = self.encoder_out_tiled,
-            memory_sequence_length = self.X_seq_len_tiled)
-        self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-            cell = tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell() for _ in range(self.layer_size)]),
-            attention_mechanism = attention_mechanism,
-            attention_layer_size = self.rnn_size)
-    # end method
-
 
     def add_decoder_for_inference(self):
-        self.add_attention_for_inference()
+        cell, initial_state = self.add_attention()
         start_tokens = tf.tile(tf.constant([self.seq_start_token], dtype=tf.int32), [self.batch_size], 
                                 name='start_tokens')
-        predicting_decoder = CustomBeamSearchDecoder(cell=self.decoder_cell,
+        predicting_decoder = CustomBeamSearchDecoder(cell=cell,
                                                 embedding=self.g_embeddings,
                                                 start_tokens=start_tokens,
                                                 end_token=self.seq_end_token,
-                                                initial_state = self.decoder_cell.zero_state(
-                                                    self.batch_size * self.beam_width, tf.float32).clone(cell_state = self.encoder_state_tiled),
+                                                initial_state = initial_state,
                                                 beam_width=self.beam_width,
                                                 cnn_context = self.cnn_context,
                                                 output_layer=self.output_layer,
@@ -168,12 +161,10 @@ class Seq2seq_Model(object):
         return predicting_decoder_output
 
     def generate(self, sess, x, x_len, response, res_len):
-        if self.isTrain:
-            print("Training model. Can not generate.")
-            return None
         res_len_max = max(res_len)
         outputs = sess.run(self.g_samples, feed_dict={self.x: x, self.target_sequence_length: x_len, self.response: response, self.target_response_length: res_len, self.max_response_length_per_batch: res_len_max})
-        outputs = outputs[:,:,0]
+        if not self.isTrain:
+            outputs = outputs[:,:,0]
         return outputs
 
     def train_step(self, sess, x, x_len, response, res_len):

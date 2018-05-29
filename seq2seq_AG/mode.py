@@ -16,7 +16,7 @@ SEQ_LENGTH = 50 # sequence length TODO need processing data
 ANS_LENGTH = 20 # sequence length TODO need processing data
 START_TOKEN = 1 #
 END_TOKEN = 3
-EPOCH_NUM = 10 # supervise (maximum likelihood estimation) epochs
+EPOCH_NUM = 5 # supervise (maximum likelihood estimation) epochs
 BATCH_SIZE = 64
 gen_filter_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20]
 gen_num_filters = [100, 200, 200, 200, 200, 100, 100, 100, 100, 100, 160, 160]
@@ -45,8 +45,8 @@ def train_epoch(sess, trainable_model, data_loader):
     for it in range(data_loader.num_batch):
         ques_batch, ques_len, ans_batch, ans_len = data_loader.next_batch()
         g_loss, _ = trainable_model.train_step(sess, ques_batch, ques_len, ans_batch, ans_len)
-        # print("sample shape: ", sample[0])
-        print('loss sample in batch ', it, ' : ', g_loss)
+        if it % 20 == 0:
+            print('loss sample in batch ', it, ' : ', g_loss)
         supervised_g_losses.append(g_loss)
 
     for it in range(data_loader.num_test_batch):
@@ -71,7 +71,7 @@ def get_gen_ans(trainable_model, data_loader, gen_ans_file, epoch):
 
     generated_answers = []
     data_loader.reset_pointer()
-    for _ in range(data_loader.num_batch):
+    for _ in range(10):
         ques_batch, ques_len, ans_batch, ans_len = data_loader.next_batch()
         generated_answers.extend(trainable_model.generate(sess, ques_batch, ques_len, ans_batch, ans_len))
 
@@ -95,17 +95,17 @@ config = tf.ConfigProto()
 # config.gpu_options.per_process_gpu_memory_fraction = 0.9  #allow_growth = False #True
 config.allow_soft_placement = True
 sess = tf.Session(config = config)
-sess.run(tf.global_variables_initializer())
 
 data_loader.create_batches(ques_file, ques_len_file, ans_file, ans_len_file)
 
 
 if TRAIN_FLAG: 
-    #  pre-train generator
+    sess.run(tf.global_variables_initializer())
+    train_writer = tf.summary.FileWriter('save/modelfig-train/', sess.graph)
     print ('Start training...')
     sampel_log = open('save/sample-log.txt', 'w')
     for epoch in range(EPOCH_NUM):
-        loss, test_loss, sample, g_sample = train_epoch(sess, seq2seq_model, data_loader)
+        loss, test_loss = train_epoch(sess, seq2seq_model, data_loader)
         print ('\t\t\t\ttrain epoch ', epoch, 'train_loss ', loss, 'test_loss ', test_loss)
         # if epoch % 1 == 0:
         #     print(g_sample)
@@ -119,5 +119,7 @@ else:
     print("loading model...")
     saver = tf.train.Saver()
     saver.restore(sess, "save/model/model" + str(EPOCH_NUM) + ".ckpt")
+    print ('Loading finished')
+    train_writer = tf.summary.FileWriter('save/modelfig-test/', sess.graph)
     get_gen_ans(seq2seq_model, data_loader, gen_ans_file, EPOCH_NUM)
-
+    print('Done')
