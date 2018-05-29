@@ -177,6 +177,9 @@ class Seq2seq_Model(object):
         return outputs
 
     def train_step(self, sess, x, x_len, response, res_len):
+        if not self.isTrain:
+            print("Predicting model. Can not train.")
+            return None
         res_len_max = max(res_len)
         outputs = sess.run([self.train_loss, self.pretrain_updates], feed_dict={self.x: x, self.target_sequence_length: x_len, self.response: response, self.target_response_length: res_len, self.max_response_length_per_batch: res_len_max})
         return outputs
