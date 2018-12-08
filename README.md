@@ -18,6 +18,7 @@ tensorflow >= 1.2
 3. run `seq2seq_AG/model.py` to train seq2seq model
 4. results and network details can be found in `structure ans results.pdf`
 
+
 ### Data Set
 
 ##### Q&A data
