@@ -1,8 +1,7 @@
 # GAN-for-Question-Rewrite
 
 A GAN can rewrite questions then use original questions and rewrite questions to train a seq2seq with CNN model for answer generation.
-
-**Note: the most updated code is in brach `cnnplstm`** 
+Paper: [Question Rewrite Based Dialogue Response Generation](https://link.springer.com/chapter/10.1007/978-3-030-04224-0_15)
 
 ### Prerequisites
 
