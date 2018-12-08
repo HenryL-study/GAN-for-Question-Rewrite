@@ -18,34 +18,61 @@ from keras.preprocessing.sequence import pad_sequences
 embedding_size = 200
 glove_embedding_filename = 'data/glove.twitter.27B.200d.txt'
 question_filename = 'data/Computer/Computers&Internet.txt' #'question-simple.txt'
+question_gen_filename = 'data/Computer/processed_concat.txt' #'question-simple.txt'
 ans_filename = 'data/Computer/Computers&Internet_ans.txt' #'question-simple.txt'
 
 processed_filename = 'data/Computer/question-vec.txt'
 processed_ques_len = 'data/Computer/question-len.txt'
 processed_ansname = 'data/Computer/answer-vec.txt'
 processed_ans_len = 'data/Computer/answer-len.txt'
+processed_catname = 'data/Computer/concat-vec.txt'
+processed_cat_len = 'data/Computer/concat-len.txt'
 processed_glove = 'data/Computer/glove-vec'
 index_to_word = 'data/Computer/index_to_word.txt'
 
 
 ques = []
+ques_concat = []
 MAX_LENGTH = 0
 file = open(question_filename,'r')
 for line in file.readlines():
     row = 'starttrats ' + line.strip() + ' enddne'
+    row_c = 'starttrats ' + line.strip()
+    ques.append(row)
+    ques_concat.append(row_c)
     row_ = text_to_word_sequence(row)
     MAX_LENGTH = max(MAX_LENGTH, len(row_))
-    ques.append(row)
+file.close()
+
+file = open(question_gen_filename,'r')
+i = 0
+for line in file.readlines():
+    if line.strip() == '':
+        i-=1
+        break
+    row = 'starttrats ' + line.strip() + ' enddne'
+    row_ = text_to_word_sequence(row)
+    MAX_LENGTH = max(MAX_LENGTH, len(row_))
+    ques_concat[i] = ques_concat[i] + ' ' + row
+    i+=1
 file.close()
 ans = []
 ANS_MAX_LENGTH = 0
 file = open(ans_filename,'r')
 for line in file.readlines():
-    row = 'starttrats ' + line.strip() + ' enddne'
+    words = line.strip().split('.')
+    if len(words[0].split()) < 2 and len(words) > 1:
+        row = 'starttrats ' + words[0] + words[1] + ' enddne'
+    else:
+        row = 'starttrats ' + words[0] + ' enddne'
     row_ = text_to_word_sequence(row)
     ANS_MAX_LENGTH = max(ANS_MAX_LENGTH, len(row_))
     ans.append(row)
 file.close()
+
+ques = ques[:i]
+ques_concat = ques_concat[:i]
+ans = ans[:i]
 
 embedding_index = {}
 fopen = codecs.open(glove_embedding_filename, 'r', 'utf-8')
@@ -67,11 +94,14 @@ embedding_index['enddne'] = np.asarray(['0' for _ in range(embedding_size)], dty
 print('Found %s word vectors.' % len(embedding_index))
 
 total_texts = []
-total_texts = ques + ans
+total_texts = ques + ans + ques_concat
 tokenizer = Tokenizer()
 tokenizer.fit_on_texts(total_texts)
+
 sequences_train = tokenizer.texts_to_sequences(ques)
 ans_train = tokenizer.texts_to_sequences(ans)
+concat_train = tokenizer.texts_to_sequences(ques_concat)
+
 ques_len = codecs.open(processed_ques_len,'w', 'utf-8')
 ques_len_static = [0,0,0,0,0,0,0]
 for seq in sequences_train:
@@ -81,27 +111,27 @@ for seq in sequences_train:
         ques_len.write(" ")
     elif len(seq) < 100:
         ques_len_static[1] += 1
-        ques_len.write(str(len(seq)))
+        ques_len.write("50")
         ques_len.write(" ")
     elif len(seq) < 200:
         ques_len_static[2] += 1
-        ques_len.write("100")
+        ques_len.write("50")
         ques_len.write(" ")
     elif len(seq) < 300:
         ques_len_static[3] += 1
-        ques_len.write("100")
+        ques_len.write("50")
         ques_len.write(" ")
     elif len(seq) < 400:
         ques_len_static[4] += 1
-        ques_len.write("100")
+        ques_len.write("50")
         ques_len.write(" ")
     elif len(seq) < 500:
         ques_len_static[5] += 1
-        ques_len.write("100")
+        ques_len.write("50")
         ques_len.write(" ")
     else:
         ques_len_static[6] += 1
-        ques_len.write("100")
+        ques_len.write("50")
         ques_len.write(" ")
 ques_len.close()
 print("ques_len_static:\n", ques_len_static)
@@ -109,50 +139,91 @@ print("ques_len_static:\n", ques_len_static)
 ans_len = codecs.open(processed_ans_len,'w', 'utf-8')
 ans_len_static = [0,0,0,0,0,0,0]
 for seq in ans_train:
-    if len(seq) < 50: 
+    if len(seq) < 5: 
         ans_len_static[0] += 1
         ans_len.write(str(len(seq)))
         ans_len.write(" ")
-    elif len(seq) < 100:
+    elif len(seq) < 10:
         ans_len_static[1] += 1
         ans_len.write(str(len(seq)))
         ans_len.write(" ")
-    elif len(seq) < 200:
+    elif len(seq) < 15:
         ans_len_static[2] += 1
-        ans_len.write("100")
+        ans_len.write(str(len(seq)))
         ans_len.write(" ")
-    elif len(seq) < 300:
+    elif len(seq) < 20:
         ans_len_static[3] += 1
-        ans_len.write("100")
+        ans_len.write(str(len(seq)))
         ans_len.write(" ")
-    elif len(seq) < 400:
+    elif len(seq) < 25:
         ans_len_static[4] += 1
-        ans_len.write("100")
+        ans_len.write("20")
         ans_len.write(" ")
-    elif len(seq) < 500:
+    elif len(seq) < 30:
         ans_len_static[5] += 1
-        ans_len.write("100")
+        ans_len.write("20")
         ans_len.write(" ")
     else:
         ans_len_static[6] += 1
-        ans_len.write("100")
+        ans_len.write("20")
         ans_len.write(" ")
 ans_len.close()
 print("ans_len_static:\n", ans_len_static)
+
+cat_len = codecs.open(processed_cat_len,'w', 'utf-8')
+cat_len_static = [0,0,0,0,0,0,0]
+for seq in concat_train:
+    if len(seq) < 50: 
+        cat_len_static[0] += 1
+        cat_len.write(str(len(seq)))
+        cat_len.write(" ")
+    elif len(seq) < 100:
+        cat_len_static[1] += 1
+        cat_len.write(str(len(seq)))
+        cat_len.write(" ")
+    elif len(seq) < 150:
+        cat_len_static[2] += 1
+        cat_len.write("100")
+        cat_len.write(" ")
+    elif len(seq) < 200:
+        cat_len_static[3] += 1
+        cat_len.write("100")
+        cat_len.write(" ")
+    elif len(seq) < 300:
+        cat_len_static[4] += 1
+        cat_len.write("100")
+        cat_len.write(" ")
+    elif len(seq) < 400:
+        cat_len_static[5] += 1
+        cat_len.write("100")
+        cat_len.write(" ")
+    else:
+        cat_len_static[6] += 1
+        cat_len.write("100")
+        cat_len.write(" ")
+cat_len.close()
+print("cat_len_static:\n", cat_len_static)
 
 #print(ques[0])
 #print(sequences_train[0])
 # # Auto filled with 0
 # remove MAX_LENGTH setting below to use the max length of all sentences.
-MAX_LENGTH = 100
+MAX_LENGTH = 50
 data_train = pad_sequences(sequences_train, maxlen = MAX_LENGTH, padding='post', truncating='post')
-ANS_MAX_LENGTH = 200
-ans_train = pad_sequences(sequences_train, maxlen = ANS_MAX_LENGTH, padding='post', truncating='post')
+ANS_MAX_LENGTH = 20
+ans_train = pad_sequences(ans_train, maxlen = ANS_MAX_LENGTH, padding='post', truncating='post')
+CAT_MAX_LENGTH = 100
+cat_train = pad_sequences(concat_train, maxlen = CAT_MAX_LENGTH, padding='post', truncating='post')
 
 
 word_index = tokenizer.word_index
 print('Found %s unique tokens.' % len(word_index))
+print('Start token: ', word_index['starttrats'])
+print('End token: ', word_index['enddne'])
 
+for ans in ans_train:
+    if ans[ANS_MAX_LENGTH-1] != word_index['enddne'] and ans[ANS_MAX_LENGTH-1] != 0:
+        ans[ANS_MAX_LENGTH-1] = word_index['enddne']
 # Prepare embedding matrix
 num_words = len(word_index)+1
 embedding_matrix = np.zeros((num_words, embedding_size))
@@ -173,11 +244,12 @@ in_w.close()
 np.save(processed_glove,embedding_matrix)
 np.savetxt(processed_filename,data_train, fmt="%d", delimiter=' ')
 np.savetxt(processed_ansname, ans_train, fmt="%d", delimiter=' ')
+np.savetxt(processed_catname, cat_train, fmt="%d", delimiter=' ')
 
 print("Processing done.")
-print("Max length: ", MAX_LENGTH)
+print("Max length of \tQ\tA\tQ_C: ", MAX_LENGTH, ANS_MAX_LENGTH, CAT_MAX_LENGTH)
 print("Embedding shape: ", embedding_matrix.shape)
-print("Data shape: ", data_train.shape)
+print("Data shape: ", data_train.shape, ans_train.shape, cat_train.shape)
 
 
 # #Word embedding

@@ -16,6 +16,7 @@ class MovieHandler( xml.sax.ContentHandler ):
       self.subject = ""
       self.content = ""
       self.maincat = ""
+      self.bestanswer = ""
       self.ques = {}
  
     # 元素开始事件处理 
@@ -27,7 +28,7 @@ class MovieHandler( xml.sax.ContentHandler ):
     def endElement(self, tag):
         self.CurrentData = ""
         if tag == "maincat":
-            question = self.subject + " " + self.content
+            question = self.subject + " " + self.content + "\n" + self.bestanswer
             if self.ques.has_key(self.maincat):
                 self.ques[self.maincat].append(question)
             else:
@@ -35,6 +36,7 @@ class MovieHandler( xml.sax.ContentHandler ):
             self.maincat = ""
             self.subject = ""
             self.content = ""
+            self.bestanswer = ""
         if tag == "ystfeed":
             with codecs.open(output_file, 'w', 'utf-8') as fout:
                 for maincat, ques in self.ques.items():
@@ -52,6 +54,8 @@ class MovieHandler( xml.sax.ContentHandler ):
             self.content += content.strip()
         elif self.CurrentData == "maincat":
             self.maincat += content.strip()
+        elif self.CurrentData == "bestanswer":
+            self.bestanswer += content.strip()
             
     
 if (  __name__ == "__main__"):

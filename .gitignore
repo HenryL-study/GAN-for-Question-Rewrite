@@ -20,4 +20,12 @@ save/sample-log.txt
 save/pre-train-sample.txt
 data/Computers&Internet.txt
 data/FullOct2007.xml
-data/questions.txt
+data/questions.txt`
+data/ques_stat.txt
+data/Informatique/Informatique.txt
+.vscode/*
+seq2seq_AG/data/Computer/processed_concat.txt
+seq2seq_AG/data/Computer/concat-len.txt
+seq2seq_AG/data/Computer/answer-len.txt
+seq2seq_AG/data/Computer/Computers&Internet_ans.txt
+seq2seq_AG/data/Computer/Computers&Internet.txt

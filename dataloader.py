@@ -6,7 +6,7 @@ class Gen_Data_loader():
         self.batch_size = batch_size
         self.token_stream = []
         self.num_stream = []
-        self.MAX_SEQ_LEN = 200 #change every time
+        self.MAX_SEQ_LEN = 100 #change every time
 
     def create_batches(self, data_file, data_len_file):
         self.token_stream = []
@@ -25,20 +25,31 @@ class Gen_Data_loader():
                 self.num_stream = [int(x) for x in line]
 
         self.num_batch = int(len(self.token_stream) / self.batch_size)
-        self.token_stream = self.token_stream[:self.num_batch * self.batch_size]
-        self.num_stream = self.num_stream[:self.num_batch * self.batch_size]
-        self.sequence_batch = np.split(np.array(self.token_stream), self.num_batch, 0)
-        self.sequence_len_batch = np.split(np.array(self.num_stream), self.num_batch)
+        self.num_test_batch = int(self.num_batch * 0.2)
+        self.total_batch = self.num_batch
+        self.num_batch -= self.num_test_batch
+        self.token_stream = self.token_stream[:self.total_batch * self.batch_size]
+        self.num_stream = self.num_stream[:self.total_batch * self.batch_size]
+        self.sequence_batch = np.split(np.array(self.token_stream), self.total_batch, 0)
+        self.sequence_len_batch = np.split(np.array(self.num_stream), self.total_batch)
         self.pointer = 0
+        self.test_pointer = 0
 
     def next_batch(self):
         ret = self.sequence_batch[self.pointer]
         seq_len = self.sequence_len_batch[self.pointer]
         self.pointer = (self.pointer + 1) % self.num_batch
         return ret, seq_len
+    
+    def next_test_batch(self):
+        ret = self.sequence_batch[self.test_pointer + self.num_batch]
+        seq_len = self.sequence_len_batch[self.test_pointer + self.num_batch]
+        self.test_pointer = (self.test_pointer + 1) % self.num_test_batch
+        return ret, seq_len
 
     def reset_pointer(self):
         self.pointer = 0
+        self.test_pointer = 0
 
 #change to given actual length
 class Dis_dataloader():
@@ -46,7 +57,7 @@ class Dis_dataloader():
         self.batch_size = batch_size
         self.sentences = np.array([])
         self.labels = np.array([])
-        self.MAX_SEQ_LEN = 200 #change every time
+        self.MAX_SEQ_LEN = 100 #change every time
 
     def load_train_data(self, positive_file, positive_len_file, negative_file):
         # Load data

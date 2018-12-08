@@ -18,10 +18,12 @@ from discriminator import Discriminator
 #  Generator  Hyper-parameters
 ######################################################################################
 HIDDEN_DIM = 32 # hidden state dimension of lstm cell
-SEQ_LENGTH = 200 # sequence length TODO need processing data
+SEQ_LENGTH = 100 # sequence length TODO need processing data
 START_TOKEN = 1 #
-PRE_EPOCH_NUM = 120 # supervise (maximum likelihood estimation) epochs
-BATCH_SIZE = 16
+PRE_EPOCH_NUM = 25 # supervise (maximum likelihood estimation) epochs
+BATCH_SIZE = 64
+gen_filter_sizes = [1, 2, 3, 9, 10, 15, 20]
+gen_num_filters = [100, 200, 200, 100, 100, 160, 160]
 
 #########################################################################################
 #  Discriminator  Hyper-parameters
@@ -31,22 +33,22 @@ dis_filter_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20]
 dis_num_filters = [100, 200, 200, 200, 200, 100, 100, 100, 100, 100, 160, 160]
 dis_dropout_keep_prob = 0.75
 dis_l2_reg_lambda = 0.2
-dis_batch_size = 16 #64
+dis_batch_size = 64
 
 #########################################################################################
 #  Basic Training Parameters
 #########################################################################################
-TOTAL_BATCH = 2500 #TODO
+TOTAL_BATCH = 1000 #TODO
 SEED = 88
 
-generated_num = 280000 #10000
+generated_num = 10000
 
 sess = tf.InteractiveSession()
 
 #Parameters
 src_vocab_size = None
 embedding_size = None
-glove_embedding_filename = 'glove-vec.npy'
+glove_embedding_filename = 'data/Computer/glove-vec.npy'
 
 #Word embedding
 def loadGloVe(filename):
@@ -83,20 +85,26 @@ def generate_samples(sess, trainable_model, batch_size, generated_num, output_fi
 def pre_train_epoch(sess, trainable_model, data_loader):
     # Pre-train the generator using MLE for one epoch
     supervised_g_losses = []
+    supervised_g_test_losses = []
     data_loader.reset_pointer()
 
     for it in range(data_loader.num_batch):
         batch, ques_len = data_loader.next_batch()
-        g_loss, _, sample = trainable_model.pretrain_step(sess, batch, ques_len)
-        if it % 1000 == 0:
-            print("loss in ", it, "/eproches: ", g_loss)
+        g_loss, _, sample, g_sample = trainable_model.pretrain_step(sess, batch, ques_len)
+        # print("sample shape: ", sample[0])
         supervised_g_losses.append(g_loss)
 
-    return np.mean(supervised_g_losses), sample
+    for it in range(data_loader.num_test_batch):
+        batch, ques_len = data_loader.next_test_batch()
+        g_test_loss= trainable_model.pretrain_test_step(sess, batch, ques_len)
+        # print("sample shape: ", sample[0])
+        supervised_g_test_losses.append(g_test_loss)
+
+    return np.mean(supervised_g_losses), np.mean(supervised_g_test_losses), sample, g_sample
 
 def process_real_data():
     #processing in process_questions.py
-    return 'question-vec.txt', 'not use now'  
+    return 'data/Computer/question-vec.txt', 'not use now'  
 
 def get_reward(sess, input_x, rollout_num, generator, discriminator):
     rewards = []
@@ -157,7 +165,7 @@ gen_data_loader = Gen_Data_loader(BATCH_SIZE)
 
 dis_data_loader = Dis_dataloader(BATCH_SIZE)
 
-generator = Generator(src_vocab_size, BATCH_SIZE, embedding_size, HIDDEN_DIM, embedding, SEQ_LENGTH, START_TOKEN)
+generator = Generator(src_vocab_size, BATCH_SIZE, embedding_size, HIDDEN_DIM, embedding, SEQ_LENGTH, START_TOKEN, gen_filter_sizes, gen_num_filters)
 # target_params = cPickle.load(open('save/target_params_py3.pkl', 'rb'))
 # target_lstm = TARGET_LSTM(src_vocab_size, BATCH_SIZE, EMB_DIM, HIDDEN_DIM, SEQ_LENGTH, START_TOKEN, target_params) # The oracle model
 
@@ -166,16 +174,17 @@ discriminator = Discriminator(sequence_length=SEQ_LENGTH, num_classes=2, vocab_s
                             filter_sizes=dis_filter_sizes, num_filters=dis_num_filters, l2_reg_lambda=dis_l2_reg_lambda)
 
 
-# config = tf.ConfigProto()
-# config.gpu_options.allow_growth = False #True
-sess = tf.Session()
+config = tf.ConfigProto()
+config.gpu_options.per_process_gpu_memory_fraction = 0.9  #allow_growth = False #True
+config.allow_soft_placement = True
+sess = tf.Session(config = config)
 sess.run(tf.global_variables_initializer())
 
 # First, creat the positive examples
 #generate_samples(sess, target_lstm, BATCH_SIZE, generated_num, positive_file)
 positive_file, eval_file = process_real_data()
 negative_file = 'save/generator_sample.txt'
-positive_len_file = 'question-len.txt'
+positive_len_file = 'data/Computer/question-len.txt'
 gen_data_loader.create_batches(positive_file, positive_len_file)
 
 log = open('save/experiment-log.txt', 'w')
@@ -187,19 +196,22 @@ print ('Start pre-training...')
 log.write('pre-training...\n')
 sample = None
 for epoch in range(PRE_EPOCH_NUM):
-    loss, sample = pre_train_epoch(sess, generator, gen_data_loader)
+    loss, test_loss, sample, g_sample = pre_train_epoch(sess, generator, gen_data_loader)
     if epoch % 1 == 0:
         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
         # likelihood_data_loader.create_batches(eval_file)
         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
-        print ('pre-train epoch ', epoch, 'generator_loss ', loss)
-        buffer = 'epoch:\t'+ str(epoch) + '\tgenerator_loss:\t' + str(loss) + '\n'
+        print ('pre-train epoch ', epoch, 'generator_loss ', loss, 'test_loss ', test_loss)
+        buffer = 'epoch:\t'+ str(epoch) + '\tgenerator_loss:\t' + str(loss) + '\ttest_loss:\t' + str(test_loss) + '\n'
         log.write(buffer)
 
 print ('sample: ', sample)
+print("saving model...")
+saver = tf.train.Saver()
+saver.save(sess, "save/pre-model/model.ckpt")
 print ('Start pre-training discriminator...')
 # Train 3 epoch on the generated data and do this for 50 times
-for _ in range(50):
+for _ in range(20):
     generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file, gen_data_loader)
     dis_data_loader.load_train_data(positive_file, positive_len_file, negative_file)
     for _ in range(3):
@@ -236,17 +248,18 @@ for _ in range(50):
 # rollout = ROLLOUT(generator, 0.8)
 print("saving model...")
 saver = tf.train.Saver()
-saver.save(sess, "save/model/model.ckpt")
+saver.save(sess, "save/pre-model/model.ckpt")
 '''
 Loading model part.
 '''
 # print("loading model...")
 # saver = tf.train.Saver()
-# saver.restore(sess, "save/model/model.ckpt")
+# saver.restore(sess, "save/pre-model/model.ckpt")
 
 
 '''
 TEST BEGIN @3.29
+TEST 1     @4.18
 '''
  
 print ('#########################################################################')
@@ -257,7 +270,7 @@ gen_data_loader.reset_pointer()
 for total_batch in range(TOTAL_BATCH):
     # Train the generator for one step
     samples = None
-    for it in range(1):
+    for it in range(5):
         batch, ques_len = gen_data_loader.next_batch()
         samples = generator.generate(sess, batch, ques_len)
         rewards = get_reward(sess, samples, 16, generator, discriminator)
@@ -269,11 +282,17 @@ for total_batch in range(TOTAL_BATCH):
     print ('total_batch: ', total_batch, 'g_loss: ', g_loss)
     log.write(buffer)
     # write sample
-    if total_batch % 10 == 0 or total_batch == TOTAL_BATCH - 1:
+    if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
         # generate_samples(sess, generator, BATCH_SIZE, generated_num, eval_file, gen_data_loader)
         # likelihood_data_loader.create_batches(eval_file)
         # test_loss = target_loss(sess, target_lstm, likelihood_data_loader)
         for seq in samples:
+            for word in seq:
+                sampel_log.write(str(word))
+                sampel_log.write(" ")
+            sampel_log.write("\n")
+        sampel_log.write("###############-real-seq-#################")
+        for seq in batch:
             for word in seq:
                 sampel_log.write(str(word))
                 sampel_log.write(" ")
@@ -287,12 +306,14 @@ for total_batch in range(TOTAL_BATCH):
     #rollout.update_params()
 
     # Train the discriminator
-    for _ in range(5):
+    for _ in range(1):
+        if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
+            generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file + str(total_batch), gen_data_loader)
         generate_samples(sess, generator, BATCH_SIZE, generated_num, negative_file, gen_data_loader)
         dis_data_loader.load_train_data(positive_file, positive_len_file, negative_file)
 
         d_loss = 0
-        for _ in range(3):
+        for _ in range(2):
             dis_data_loader.reset_pointer()
             d_t = 0
             for it in range(dis_data_loader.num_batch):
@@ -310,7 +331,8 @@ for total_batch in range(TOTAL_BATCH):
 
     print("saving model...")
     saver = tf.train.Saver()
-    saver.save(sess, "save/model/model.ckpt")
+    saver.save(sess, "save/model/model.ckpt-" + str(total_batch))
+    print("Done")
 
 log.close()
 sampel_log.close()
